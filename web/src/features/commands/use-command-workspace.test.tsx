@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CommandReceipt } from '../../api/client';
 import { CommandAPIError } from '../../api/client';
 import { createQueryClient } from '../../app/query-client';
-import { deferred, developmentSession, receiptFor } from '../../test/fixtures';
+import { analystProject, deferred, enterpriseSession, receiptFor } from '../../test/fixtures';
 import { commandKeys, useCommandWorkspace } from './use-command-workspace';
 
 const apiMock = vi.hoisted(() => ({ acceptCommand: vi.fn(), getCommandReceipt: vi.fn() }));
@@ -14,16 +14,20 @@ vi.mock('../../api/client', async (importOriginal) => ({
   ...apiMock,
 }));
 
-const projectId = developmentSession.project_id;
+const actorId = enterpriseSession.actor_id;
+const projectId = analystProject.id;
 const firstId = '00000000-0000-4000-8000-000000000003';
 const secondId = '00000000-0000-4000-8000-000000000004';
 
-function setup() {
+function setup(currentActorId = actorId) {
   const queryClient = createQueryClient();
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  return { ...renderHook(() => useCommandWorkspace(projectId), { wrapper }), queryClient };
+  return {
+    ...renderHook(() => useCommandWorkspace(currentActorId, projectId), { wrapper }),
+    queryClient,
+  };
 }
 
 beforeEach(() => {
@@ -72,7 +76,7 @@ describe('命令交互与服务器缓存', () => {
     });
     expect(result.current.phase).toBe('accepted');
     expect(result.current.receipt).toEqual(receiptFor(firstId, '标题'));
-    expect(queryClient.getQueryData(commandKeys.detail(projectId, firstId))).toEqual(
+    expect(queryClient.getQueryData(commandKeys.detail(actorId, projectId, firstId))).toEqual(
       receiptFor(firstId, '标题'),
     );
     expect(apiMock.getCommandReceipt).toHaveBeenLastCalledWith(
@@ -175,5 +179,30 @@ describe('命令交互与服务器缓存', () => {
     expect(result.current.receipt).toEqual(receiptFor(firstId));
     expect(result.current.phase).toBe('accepted');
     expect(result.current.notice?.message).toContain('保留上次确认');
+  });
+
+  it('不同 actor 的同项目同命令不共享回执缓存', async () => {
+    const otherActorId = '10000000-0000-4000-8000-000000000009';
+    apiMock.getCommandReceipt.mockRejectedValue(
+      new CommandAPIError(404, {
+        code: 'command_not_found',
+        message: '暂未找到命令',
+        request_id: firstId,
+      }),
+    );
+    const { result, queryClient } = setup(otherActorId);
+    queryClient.setQueryData(
+      commandKeys.detail(actorId, projectId, firstId),
+      receiptFor(firstId, '其他身份的回执'),
+    );
+
+    await act(async () => {
+      await result.current.lookup(firstId);
+    });
+
+    expect(result.current.receipt).toBeUndefined();
+    expect(
+      queryClient.getQueryData(commandKeys.detail(otherActorId, projectId, firstId)),
+    ).toBeUndefined();
   });
 });

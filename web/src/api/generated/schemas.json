@@ -4,34 +4,91 @@
     "UUID": {
       "type": "string",
       "format": "uuid",
-      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-      "description": "带连字符的标准小写 UUID。"
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
-    "DevelopmentSession": {
+    "ProjectAccess": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "mode",
-        "actor_id",
-        "project_id",
-        "project_name"
+        "id",
+        "name",
+        "role",
+        "capabilities",
+        "version"
       ],
       "properties": {
-        "mode": {
-          "type": "string",
-          "const": "development"
+        "id": {
+          "$ref": "#/$defs/UUID"
         },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "viewer",
+            "analyst"
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "project:read",
+              "task_draft:create"
+            ]
+          }
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    },
+    "Session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor_id",
+        "display_name",
+        "email",
+        "projects",
+        "csrf_token",
+        "expires_at"
+      ],
+      "properties": {
         "actor_id": {
-          "type": "string",
-          "const": "00000000-0000-4000-8000-000000000001"
+          "$ref": "#/$defs/UUID"
         },
-        "project_id": {
+        "display_name": {
           "type": "string",
-          "const": "00000000-0000-4000-8000-000000000002"
+          "minLength": 1,
+          "maxLength": 120
         },
-        "project_name": {
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "email"
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ProjectAccess"
+          }
+        },
+        "csrf_token": {
           "type": "string",
-          "const": "本地演示项目"
+          "minLength": 32
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
         }
       }
     },
@@ -89,8 +146,7 @@
         },
         "state": {
           "type": "string",
-          "const": "accepted",
-          "description": "已受理，不代表执行完成。"
+          "const": "accepted"
         },
         "task_id": {
           "$ref": "#/$defs/UUID"
@@ -106,14 +162,12 @@
         },
         "version": {
           "type": "string",
-          "const": "1",
-          "description": "十进制业务版本字符串，避免 JavaScript 整数精度损失。"
+          "const": "1"
         },
         "accepted_at": {
           "type": "string",
           "format": "date-time",
-          "pattern": "Z$",
-          "description": "原始受理时间，UTC RFC3339，统一使用 Z 时区后缀。"
+          "pattern": "Z$"
         }
       }
     },
@@ -130,8 +184,12 @@
           "type": "string",
           "enum": [
             "invalid_request",
+            "unauthenticated",
+            "session_expired",
+            "identity_not_provisioned",
+            "csrf_invalid",
             "project_forbidden",
-            "development_only",
+            "origin_forbidden",
             "command_not_found",
             "idempotency_conflict",
             "request_too_large",
@@ -140,17 +198,13 @@
             "internal_error",
             "route_not_found",
             "method_not_allowed"
-          ],
-          "description": "稳定机器错误码，禁止通过中文说明分支判断。"
+          ]
         },
         "message": {
-          "type": "string",
-          "description": "可直接展示的中文说明，不含内部异常或秘密。"
+          "type": "string"
         },
         "request_id": {
-          "type": "string",
-          "format": "uuid",
-          "description": "服务端生成的请求关联标识。"
+          "$ref": "#/$defs/UUID"
         }
       }
     }

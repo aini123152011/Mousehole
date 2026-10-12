@@ -20,6 +20,9 @@ import (
 	"mousehole/backend/internal/command"
 )
 
+const testActorID = "10000000-0000-4000-8000-000000000001"
+const testProjectID = "10000000-0000-4000-8000-000000000002"
+
 type databaseFixture struct {
 	pool   *pgxpool.Pool
 	config *pgxpool.Config
@@ -27,6 +30,10 @@ type databaseFixture struct {
 }
 
 func testDatabase(t *testing.T) databaseFixture {
+	return testDatabaseBeforeIdentity(t, nil)
+}
+
+func testDatabaseBeforeIdentity(t *testing.T, seed func(*pgxpool.Pool)) databaseFixture {
 	t.Helper()
 	databaseURL := os.Getenv("MOUSEHOLE_TEST_DATABASE_URL")
 	if databaseURL == "" {
@@ -74,13 +81,89 @@ func testDatabase(t *testing.T) databaseFixture {
 	if err != nil {
 		t.Fatalf("迁移提供者失败：%v", err)
 	}
-	if _, err = provider.Up(ctx); err != nil {
-		t.Fatalf("编号迁移失败：%v", err)
+	if seed == nil {
+		if _, err = provider.Up(ctx); err != nil {
+			t.Fatalf("编号迁移失败：%v", err)
+		}
+	} else {
+		if _, err = provider.UpTo(ctx, 1); err != nil {
+			t.Fatalf("基线迁移失败：%v", err)
+		}
+		seed(pool)
+		if _, err = provider.Up(ctx); err != nil {
+			t.Fatalf("身份迁移失败：%v", err)
+		}
 	}
 	if results, err := provider.Up(ctx); err != nil || len(results) != 0 {
 		t.Fatalf("已应用编号迁移必须不重复执行，结果=%v，错误=%v", results, err)
 	}
+	// 每个随机 schema 显式建立活动分析员；历史固定身份保持禁用，不作为测试后门。
+	inTransaction(t, pool, func(tx pgx.Tx) error {
+		if _, txErr := tx.Exec(ctx, "INSERT INTO users (id, display_name) VALUES ($1, '集成测试分析员')", testActorID); txErr != nil {
+			return txErr
+		}
+		if _, txErr := tx.Exec(ctx, "INSERT INTO projects (id, name) VALUES ($1, '集成测试项目')", testProjectID); txErr != nil {
+			return txErr
+		}
+		_, txErr := tx.Exec(ctx, "INSERT INTO project_memberships (project_id, user_id, role) VALUES ($1, $2, 'analyst')", testProjectID, testActorID)
+		return txErr
+	})
 	return databaseFixture{pool: pool, config: config, schema: schema}
+}
+
+func inTransaction(t *testing.T, pool *pgxpool.Pool, action func(pgx.Tx) error) {
+	t.Helper()
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	if err = action(tx); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestIdentityMigrationPreservesLegacyCommandOwnership(t *testing.T) {
+	commandID := uuid.NewString()
+	taskID := uuid.NewString()
+	fixture := testDatabaseBeforeIdentity(t, func(pool *pgxpool.Pool) {
+		inTransaction(t, pool, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(context.Background(), `
+INSERT INTO commands (project_id, command_id, actor_id, kind, task_id, task_title)
+VALUES ($1, $2, $3, 'create_task_draft', $4, '历史迁移草稿')`, command.DevelopmentProjectID, commandID, command.DevelopmentActorID, taskID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(context.Background(), `
+INSERT INTO tasks (task_id, project_id, command_id, title)
+VALUES ($1, $2, $3, '历史迁移草稿')`, taskID, command.DevelopmentProjectID, commandID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(context.Background(), `
+INSERT INTO audit_events (project_id, command_id, actor_id, task_id, event_type)
+VALUES ($1, $2, $3, $4, 'task_draft_created')`, command.DevelopmentProjectID, commandID, command.DevelopmentActorID, taskID); err != nil {
+				return err
+			}
+			_, err := tx.Exec(context.Background(), `
+INSERT INTO outbox_events (project_id, command_id, task_id, event_type)
+VALUES ($1, $2, $3, 'task_draft_created')`, command.DevelopmentProjectID, commandID, taskID)
+			return err
+		})
+	})
+	var actorID, projectID, title string
+	if err := fixture.pool.QueryRow(context.Background(), `
+SELECT actor_id::text, project_id::text, task_title
+FROM commands WHERE project_id=$1 AND command_id=$2`, command.DevelopmentProjectID, commandID).Scan(&actorID, &projectID, &title); err != nil {
+		t.Fatal(err)
+	}
+	if actorID != command.DevelopmentActorID || projectID != command.DevelopmentProjectID || title != "历史迁移草稿" {
+		t.Fatalf("迁移改写了历史归属：actor=%s project=%s title=%s", actorID, projectID, title)
+	}
+	if _, err := command.NewService(fixture.pool).Get(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, commandID); !errors.Is(err, command.ErrForbidden) {
+		t.Fatalf("历史禁用身份不得成为运行时后门：%v", err)
+	}
 }
 
 func assertCounts(t *testing.T, pool *pgxpool.Pool, want int) {
@@ -117,7 +200,7 @@ func TestAcceptConcurrentIdempotencyAndConflict(t *testing.T) {
 			<-start
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
-			receipt, created, err := service.Accept(ctx, command.DevelopmentActorID, command.DevelopmentProjectID, id, request)
+			receipt, created, err := service.Accept(ctx, testActorID, testProjectID, id, request)
 			results <- struct {
 				receipt command.Receipt
 				created bool
@@ -155,16 +238,16 @@ func TestAcceptConcurrentIdempotencyAndConflict(t *testing.T) {
 	assertCounts(t, fixture.pool, 1)
 	// 规范化后相同的标题必须回放原记录，不把首尾空白当作新参数。
 	request.Payload.Title = "并发中文草稿"
-	if replayed, created, err := service.Accept(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id, request); err != nil || created || replayed != original {
+	if replayed, created, err := service.Accept(context.Background(), testActorID, testProjectID, id, request); err != nil || created || replayed != original {
 		t.Fatalf("规范化参数未回放原回执，created=%v，错误=%v，回执=%+v", created, err, replayed)
 	}
 
 	// 不同规范化参数必须冲突，不能改变原草稿或新增审计/outbox。
 	request.Payload.Title = "不同中文标题"
-	if _, _, err := service.Accept(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id, request); !errors.Is(err, command.ErrConflict) {
+	if _, _, err := service.Accept(context.Background(), testActorID, testProjectID, id, request); !errors.Is(err, command.ErrConflict) {
 		t.Fatalf("预期幂等冲突，实际=%v", err)
 	}
-	loaded, err := service.Get(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id)
+	loaded, err := service.Get(context.Background(), testActorID, testProjectID, id)
 	if err != nil || loaded != original {
 		t.Fatalf("冲突修改了原始回执：%+v，错误=%v", loaded, err)
 	}
@@ -190,18 +273,18 @@ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION reject_outbox_commit
 	}
 	service := command.NewService(fixture.pool)
 	id := uuid.NewString()
-	_, _, err = service.Accept(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id, command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "提交回滚草稿"}})
+	_, _, err = service.Accept(context.Background(), testActorID, testProjectID, id, command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "提交回滚草稿"}})
 	if !errors.Is(err, command.ErrUnavailable) {
 		t.Fatalf("提交失败应保留待确认语义，实际=%v", err)
 	}
 	assertCounts(t, fixture.pool, 0)
-	if _, err = service.Get(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id); !errors.Is(err, command.ErrNotFound) {
+	if _, err = service.Get(context.Background(), testActorID, testProjectID, id); !errors.Is(err, command.ErrNotFound) {
 		t.Fatalf("失败提交不应留下回执，实际=%v", err)
 	}
 	if _, err = fixture.pool.Exec(context.Background(), "DROP TRIGGER reject_outbox_commit ON outbox_events"); err != nil {
 		t.Fatal(err)
 	}
-	if _, created, err := service.Accept(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id, command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "提交回滚草稿"}}); err != nil || !created {
+	if _, created, err := service.Accept(context.Background(), testActorID, testProjectID, id, command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "提交回滚草稿"}}); err != nil || !created {
 		t.Fatalf("原 ID 在确认回滚后应可人工提交，created=%v，错误=%v", created, err)
 	}
 	assertCounts(t, fixture.pool, 1)
@@ -210,7 +293,7 @@ DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION reject_outbox_commit
 func TestReceiptSurvivesConnectionPoolReload(t *testing.T) {
 	fixture := testDatabase(t)
 	id := uuid.NewString()
-	before, _, err := command.NewService(fixture.pool).Accept(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id, command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "重启恢复草稿"}})
+	before, _, err := command.NewService(fixture.pool).Accept(context.Background(), testActorID, testProjectID, id, command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "重启恢复草稿"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,12 +304,151 @@ func TestReceiptSurvivesConnectionPoolReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reloaded.Close()
-	after, err := command.NewService(reloaded).Get(context.Background(), command.DevelopmentActorID, command.DevelopmentProjectID, id)
+	after, err := command.NewService(reloaded).Get(context.Background(), testActorID, testProjectID, id)
 	if err != nil || before != after {
 		t.Fatalf("重新连接后原回执无法恢复：前=%+v，后=%+v，错误=%v", before, after, err)
 	}
 	assertCounts(t, reloaded, 1)
-	if _, err = command.NewService(reloaded).Get(context.Background(), command.DevelopmentActorID, uuid.NewString(), id); !errors.Is(err, command.ErrForbidden) {
+	if _, err = command.NewService(reloaded).Get(context.Background(), testActorID, uuid.NewString(), id); !errors.Is(err, command.ErrForbidden) {
 		t.Fatalf("重新查询必须重验项目，实际=%v", err)
 	}
+}
+
+func TestOtherMemberCannotReadOrProbeCommand(t *testing.T) {
+	fixture := testDatabase(t)
+	otherActorID := "10000000-0000-4000-8000-000000000003"
+	inTransaction(t, fixture.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(context.Background(), "INSERT INTO users (id, display_name) VALUES ($1, '另一位分析员')", otherActorID); err != nil {
+			return err
+		}
+		_, err := tx.Exec(context.Background(), "INSERT INTO project_memberships (project_id, user_id, role) VALUES ($1, $2, 'analyst')", testProjectID, otherActorID)
+		return err
+	})
+	service := command.NewService(fixture.pool)
+	id := uuid.NewString()
+	request := command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "原成员草稿"}}
+	if _, _, err := service.Accept(context.Background(), testActorID, testProjectID, id, request); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Get(context.Background(), otherActorID, testProjectID, id); !errors.Is(err, command.ErrNotFound) {
+		t.Fatalf("其他成员查询不得泄露对象存在：%v", err)
+	}
+	request.Payload.Title = "探测不同标题"
+	if _, _, err := service.Accept(context.Background(), otherActorID, testProjectID, id, request); !errors.Is(err, command.ErrNotFound) {
+		t.Fatalf("其他成员幂等探测不得泄露冲突：%v", err)
+	}
+	if _, err := fixture.pool.Exec(context.Background(), `
+UPDATE project_memberships SET state='revoked', version=version+1, revoked_at=CURRENT_TIMESTAMP WHERE project_id=$1 AND user_id=$2`, testProjectID, testActorID); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := service.Accept(context.Background(), testActorID, testProjectID, uuid.NewString(), request); !errors.Is(err, command.ErrForbidden) {
+		t.Fatalf("撤销后的新命令必须拒绝：%v", err)
+	}
+}
+
+func TestMembershipRevocationSerializesWithCommand(t *testing.T) {
+	t.Run("撤销先提交则命令拒绝", func(t *testing.T) {
+		fixture := testDatabase(t)
+		tx, err := fixture.pool.Begin(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(context.Background())
+		if _, err = tx.Exec(context.Background(), `
+UPDATE project_memberships
+SET state='revoked', version=version+1, revoked_at=CURRENT_TIMESTAMP
+WHERE project_id=$1 AND user_id=$2`, testProjectID, testActorID); err != nil {
+			t.Fatal(err)
+		}
+		result := make(chan error, 1)
+		go func() {
+			_, _, acceptErr := command.NewService(fixture.pool).Accept(
+				context.Background(), testActorID, testProjectID, uuid.NewString(),
+				command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "撤销先提交"}},
+			)
+			result <- acceptErr
+		}()
+		select {
+		case early := <-result:
+			t.Fatalf("撤销事务未提交时命令不应绕过行锁：%v", early)
+		case <-time.After(150 * time.Millisecond):
+		}
+		if err = tx.Commit(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if acceptErr := <-result; !errors.Is(acceptErr, command.ErrForbidden) {
+			t.Fatalf("撤销先提交后命令必须拒绝：%v", acceptErr)
+		}
+		assertCounts(t, fixture.pool, 0)
+	})
+
+	t.Run("命令先持锁则完整提交后撤销", func(t *testing.T) {
+		fixture := testDatabase(t)
+		const gate int64 = 424242
+		if _, err := fixture.pool.Exec(context.Background(), `
+CREATE FUNCTION wait_command_gate() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN PERFORM pg_advisory_xact_lock(424242); RETURN NEW; END;
+$$;
+CREATE TRIGGER wait_command_gate BEFORE INSERT ON commands
+FOR EACH ROW EXECUTE FUNCTION wait_command_gate();`); err != nil {
+			t.Fatal(err)
+		}
+		gateConnection, err := fixture.pool.Acquire(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer gateConnection.Release()
+		if _, err = gateConnection.Exec(context.Background(), "SELECT pg_advisory_lock($1)", gate); err != nil {
+			t.Fatal(err)
+		}
+		acceptResult := make(chan error, 1)
+		commandID := uuid.NewString()
+		go func() {
+			_, _, acceptErr := command.NewService(fixture.pool).Accept(
+				context.Background(), testActorID, testProjectID, commandID,
+				command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "命令先提交"}},
+			)
+			acceptResult <- acceptErr
+		}()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			var waiting int
+			if err = fixture.pool.QueryRow(context.Background(), `
+SELECT count(*) FROM pg_locks
+WHERE locktype='advisory' AND objid=$1 AND NOT granted`, gate).Scan(&waiting); err != nil {
+				t.Fatal(err)
+			}
+			if waiting > 0 {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("命令未在合成门闩处等待")
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		revokeResult := make(chan error, 1)
+		go func() {
+			_, revokeErr := fixture.pool.Exec(context.Background(), `
+UPDATE project_memberships
+SET state='revoked', version=version+1, revoked_at=CURRENT_TIMESTAMP
+WHERE project_id=$1 AND user_id=$2 AND state='active'`, testProjectID, testActorID)
+			revokeResult <- revokeErr
+		}()
+		if _, err = gateConnection.Exec(context.Background(), "SELECT pg_advisory_unlock($1)", gate); err != nil {
+			t.Fatal(err)
+		}
+		if err = <-acceptResult; err != nil {
+			t.Fatalf("先持有成员共享锁的命令应完整提交：%v", err)
+		}
+		if err = <-revokeResult; err != nil {
+			t.Fatal(err)
+		}
+		assertCounts(t, fixture.pool, 1)
+		if _, _, err = command.NewService(fixture.pool).Accept(
+			context.Background(), testActorID, testProjectID, uuid.NewString(),
+			command.Request{Kind: command.CreateTaskDraft, Payload: command.Payload{Title: "撤销后新命令"}},
+		); !errors.Is(err, command.ErrForbidden) {
+			t.Fatalf("撤销后新请求必须拒绝：%v", err)
+		}
+	})
 }

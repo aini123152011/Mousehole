@@ -27,7 +27,7 @@ func NewService(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 // 四类记录同事务提交，不在事务中调用外部系统。提交失败可能结果未知，
 // 调用方应保留命令 ID 查询，不生成新 ID 自动重发。
 func (s *Service) Accept(ctx context.Context, actorID, projectID, commandID string, request Request) (Receipt, bool, error) {
-	if err := validateAccess(actorID, projectID, commandID); err != nil {
+	if err := validateIDs(actorID, projectID, commandID); err != nil {
 		return Receipt{}, false, err
 	}
 	request, err := NormalizeRequest(request)
@@ -40,6 +40,15 @@ func (s *Service) Accept(ctx context.Context, actorID, projectID, commandID stri
 	}
 	defer rollback(tx)
 	queries := sqlc.New(tx)
+	role, err := queries.LockProjectMembership(ctx, sqlc.LockProjectMembershipParams{
+		ProjectID: databaseID(projectID), UserID: databaseID(actorID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && role != "analyst") {
+		return Receipt{}, false, ErrForbidden
+	}
+	if err != nil {
+		return Receipt{}, false, unavailable(err)
+	}
 	taskID, err := uuid.NewRandom()
 	if err != nil {
 		return Receipt{}, false, fmt.Errorf("生成草稿标识: %w", err)
@@ -54,7 +63,11 @@ func (s *Service) Accept(ctx context.Context, actorID, projectID, commandID stri
 		if err != nil {
 			return Receipt{}, false, unavailable(err)
 		}
-		if row.ActorID != databaseID(actorID) || row.Kind != request.Kind || row.TaskTitle != request.Payload.Title {
+		if row.ActorID != databaseID(actorID) {
+			// 同项目成员不能通过幂等冲突探测其他 actor 的命令参数。
+			return Receipt{}, false, ErrNotFound
+		}
+		if row.Kind != request.Kind || row.TaskTitle != request.Payload.Title {
 			return Receipt{}, false, ErrConflict
 		}
 		return receipt(row), false, nil
@@ -79,10 +92,25 @@ func (s *Service) Accept(ctx context.Context, actorID, projectID, commandID stri
 
 // Get 从数据库查询原命令，每次重验项目与身份；不存在不自动触发提交。
 func (s *Service) Get(ctx context.Context, actorID, projectID, commandID string) (Receipt, error) {
-	if err := validateAccess(actorID, projectID, commandID); err != nil {
+	if err := validateIDs(actorID, projectID, commandID); err != nil {
 		return Receipt{}, err
 	}
-	row, err := sqlc.New(s.pool).GetCommand(ctx, sqlc.GetCommandParams{ProjectID: databaseID(projectID), CommandID: databaseID(commandID)})
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return Receipt{}, unavailable(err)
+	}
+	defer rollback(tx)
+	queries := sqlc.New(tx)
+	_, err = queries.LockProjectMembership(ctx, sqlc.LockProjectMembershipParams{
+		ProjectID: databaseID(projectID), UserID: databaseID(actorID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Receipt{}, ErrForbidden
+	}
+	if err != nil {
+		return Receipt{}, unavailable(err)
+	}
+	row, err := queries.GetCommand(ctx, sqlc.GetCommandParams{ProjectID: databaseID(projectID), CommandID: databaseID(commandID)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Receipt{}, ErrNotFound
 	}
@@ -90,7 +118,10 @@ func (s *Service) Get(ctx context.Context, actorID, projectID, commandID string)
 		return Receipt{}, unavailable(err)
 	}
 	if row.ActorID != databaseID(actorID) {
-		return Receipt{}, ErrForbidden
+		return Receipt{}, ErrNotFound
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Receipt{}, unavailable(err)
 	}
 	return receipt(row), nil
 }

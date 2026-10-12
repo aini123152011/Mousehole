@@ -16,4 +16,4 @@ s.logger.InfoContext(r.Context(), "任务草稿命令已受理",
 
 示例说明字段，实际实现见 [server.go](../../../backend/internal/httpapi/server.go)。禁止记录完整 DSN、标题、请求正文、令牌、Cookie、SQL 异常细节、目标证据或模型 prompt。开发模式也遵守此边界。调试需要具体证据才增加脱敏字段，不临时开启全部正文。
 
-`audit_events` 属于业务账本，与命令和草稿同事务；INFO 不能代替它。响应写出失败不撤销已提交事务，日志与 UI 都要求按原 ID 查询。测试替身 logger 只写测试拥有的缓冲区，不扩大生产日志内容。
+`audit_events` 与 `access_audit_events` 是业务账本，INFO 不能代替它们。身份路径额外禁止记录 OIDC code、token、claims、PKCE verifier、Cookie 原值、CSRF 或 auth key；callback 公开页也遵守同一边界。响应写出失败不撤销已提交事务，日志与 UI 都要求按原 ID 查询。

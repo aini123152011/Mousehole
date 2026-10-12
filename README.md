@@ -2,9 +2,9 @@
 
 面向单企业私有化的自主安全评估平台。本仓库正在落实基于 ARTEX 源码审查形成的重建方案：Go 控制面、PostgreSQL 业务权威、React 中文工作台，以及后续的 Temporal 编排与隔离 Runner。
 
-当前交付的是第一个可运行切片：**创建任务草稿 → 事务受理 → 查询原回执**。包含真实数据库并发与回滚验证、响应丢失后的查询恢复、中文注释和统一检查工具。页面显示“已受理”时，草稿已经持久化，尚未执行目标操作。
+当前交付在草稿命令闭环上增加了 **企业 OIDC 登录 → 服务端会话 → 项目成员权限 → 草稿受理与原回执查询**。浏览器不保存 OIDC token，只持有 HttpOnly 不透明 Cookie；项目写权限在命令事务内与成员撤销串行化。页面显示“已受理”时，草稿已经持久化，尚未执行目标操作。
 
-完整路线和取舍见 [设计方案](.trellis/tasks/10-11-artex-rebuild-plan/design.md)、[统一中文代码规范](.trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md) 和 [注释与文档模板](.trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md)。这些是总体规划；已有实现以本 README、源码及 [本切片验收记录](docs/validation/p0-command-foundation.md) 为准。
+完整路线和取舍见 [设计方案](.trellis/tasks/10-11-artex-rebuild-plan/design.md)、[统一中文代码规范](.trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md) 和 [注释与文档模板](.trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md)。这些是总体规划；已有实现以本 README、源码及 [本切片验收记录](docs/validation/p0-identity-access.md) 为准。
 
 ## 开发环境
 
@@ -32,12 +32,63 @@ pnpm --dir web install --frozen-lockfile
 
 `database` 会等待 PostgreSQL 健康，并在不存在时创建固定的 `mousehole_test` 测试库。已有卷和数据保留；不会连接 ARTEX 数据库。公开开发占位密码见 [Compose](deploy/compose.yaml)。
 
-在 API 终端显式配置环境并迁移，然后启动服务：
+在管理终端显式配置数据库并迁移，然后预置测试身份与项目成员。issuer 与 subject 必须使用部署 IdP 的精确值，email 和显示名不参与授权：
 
 ```powershell
 $env:MOUSEHOLE_MODE = 'development'
 $env:MOUSEHOLE_DATABASE_URL = 'postgres://mousehole:mousehole-local-only@127.0.0.1:55432/mousehole?sslmode=disable'
 python scripts/dev.py migrate
+go -C backend run ./cmd/admin provision-user `
+  --database-url $env:MOUSEHOLE_DATABASE_URL `
+  --issuer http://127.0.0.1:9090 --subject mousehole-local-analyst `
+  --user-id 10000000-0000-4000-8000-000000000001 --display-name 本地分析员 `
+  --project-id 10000000-0000-4000-8000-000000000002 --project-name 本地评估项目 `
+  --role analyst
+```
+
+会话和权限撤销使用构建后的管理员二进制，以便脚本获得稳定退出码。每条命令都要求显式 DSN 和标准小写 UUID，不读取 `.env`；重复执行成功且不重复写管理审计。禁用和撤销只更新状态并保留用户、成员、命令及历史审计：
+
+```powershell
+New-Item -ItemType Directory -Force .local/bin | Out-Null
+go -C backend build -o ../.local/bin/mousehole-admin.exe ./cmd/admin
+$admin = (Resolve-Path .local/bin/mousehole-admin.exe).Path
+& $admin revoke-sessions --database-url $env:MOUSEHOLE_DATABASE_URL `
+  --user-id 10000000-0000-4000-8000-000000000001
+& $admin revoke-membership --database-url $env:MOUSEHOLE_DATABASE_URL `
+  --user-id 10000000-0000-4000-8000-000000000001 `
+  --project-id 10000000-0000-4000-8000-000000000002
+& $admin disable-user --database-url $env:MOUSEHOLE_DATABASE_URL `
+  --user-id 10000000-0000-4000-8000-000000000001
+```
+
+| 退出码 | 含义                                             |
+| ------ | ------------------------------------------------ |
+| `0`    | 成功，包括状态已经满足要求的幂等重放和帮助输出。 |
+| `1`    | 未分类的内部失败。                               |
+| `2`    | 用法错误、缺少参数、无效 DSN 或非标准 UUID。     |
+| `3`    | 指定用户或项目成员关系不存在。                   |
+| `4`    | 预置参数与既有稳定绑定冲突。                     |
+| `5`    | 数据库连接或事务结果无法确认。                   |
+
+在独立终端启动工程拥有的合成 OIDC issuer。它只用于本地开发和 E2E，不连接真实企业 IdP：
+
+```powershell
+$env:MOUSEHOLE_OIDC_CLIENT_ID = 'mousehole-local'
+$env:MOUSEHOLE_OIDC_CLIENT_SECRET = 'mousehole-local-secret'
+python scripts/dev.py oidc
+```
+
+在 API 终端设置身份与会话配置后启动服务。示例 auth key 是公开的本地占位值，生产必须使用秘密管理系统生成并注入独立的 32 字节随机值：
+
+```powershell
+$env:MOUSEHOLE_MODE = 'development'
+$env:MOUSEHOLE_DATABASE_URL = 'postgres://mousehole:mousehole-local-only@127.0.0.1:55432/mousehole?sslmode=disable'
+$env:MOUSEHOLE_PUBLIC_URL = 'http://127.0.0.1:8080'
+$env:MOUSEHOLE_WEB_ORIGIN = 'http://127.0.0.1:5173'
+$env:MOUSEHOLE_OIDC_ISSUER = 'http://127.0.0.1:9090'
+$env:MOUSEHOLE_OIDC_CLIENT_ID = 'mousehole-local'
+$env:MOUSEHOLE_OIDC_CLIENT_SECRET = 'mousehole-local-secret'
+$env:MOUSEHOLE_AUTH_KEY = 'bW91c2Vob2xlLWxvY2FsLWF1dGgta2V5LTMyYnl0ZXM='
 python scripts/dev.py api
 ```
 
@@ -47,7 +98,7 @@ python scripts/dev.py api
 python scripts/dev.py web
 ```
 
-打开 [中文工作台](http://127.0.0.1:5173/)。API 默认在 `127.0.0.1:8080`，Vite 代理 `/api`。固定本地身份和项目只是开发适配器；所有业务请求仍检查开发标记、Host、Origin、身份和项目范围。[.env.example](.env.example) 只展示配置，脚本不自动读取它。
+打开 [中文工作台](http://127.0.0.1:5173/) 并选择“登录”。合成 issuer 会自动使用预置 subject 完成标准授权码 + PKCE 流程。API 默认在 `127.0.0.1:8080`，Vite 代理 `/api`；所有受保护请求都重新检查 Cookie 会话、用户状态和项目成员关系，写请求还检查 Origin 与 CSRF。[.env.example](.env.example) 只展示配置，脚本不自动读取它。
 
 Linux/macOS 使用相同 Python 入口，将 PowerShell 环境赋值替换为：
 
@@ -70,16 +121,18 @@ python scripts/check.py --integration
 python scripts/verify_restart.py
 ```
 
-`verify_restart.py` 要求同终端设置 `MOUSEHOLE_MODE`、`MOUSEHOLE_DATABASE_URL` 且已迁移。它在随机 loopback 端口启动独立 API，创建一条合成草稿、终止进程、重新启动，并逐字段核对原回执；保留该条验收数据。集成测试则使用随机 schema，只清理自己创建的 schema。
+`verify_restart.py` 要求同终端设置 `MOUSEHOLE_MODE`、`MOUSEHOLE_DATABASE_URL` 且已迁移。它在随机 loopback 端口启动独立合成 OIDC issuer 与 API，预置随机身份和项目，完成登录、Cookie/CSRF 写入、API 重启及原回执逐字段核对；保留该条验收数据。集成测试则使用随机 schema，只清理自己创建的 schema。
 
 保持开发 API 已启动，安装浏览器并运行端到端检查；Playwright 自动启动 Vite：
 
 ```powershell
+go -C backend build -o ../.local/bin/mousehole-admin.exe ./cmd/admin
+$env:MOUSEHOLE_E2E_ADMIN_BIN = (Resolve-Path .local/bin/mousehole-admin.exe).Path
 pnpm --dir web exec playwright install chromium
 pnpm --dir web e2e
 ```
 
-`python scripts/check.py --integration --e2e` 合并上述格式与行为检查，但不替代独立重启检查。`--scope backend|web|text` 可缩小范围；`--race` 增加 Go 竞态检测。Linux CI 执行竞态检查；Windows 需要可用的 C 编译工具链。缺数据库、浏览器或指定工具时检查失败，不将跳过当成通过。CI 配置见 [check.yml](.github/workflows/check.yml)，配置已落盘与云端实际运行成功是两个不同状态。
+权限撤销场景会在最后撤销合成用户的成员关系，应使用隔离且已迁移的 E2E 数据库；同一数据库重跑前需要重新建立测试夹具，不能指向生产库。`python scripts/check.py --integration --e2e` 合并上述格式与行为检查，但不替代独立重启检查。`--scope backend|web|text` 可缩小范围；`--race` 增加 Go 竞态检测。Linux CI 执行竞态检查；Windows 需要可用的 C 编译工具链。缺数据库、浏览器或指定工具时检查失败，不将跳过当成通过。CI 配置见 [check.yml](.github/workflows/check.yml)，配置已落盘与云端实际运行成功是两个不同状态。
 
 前端统一格式化：`pnpm --dir web format`；根文档使用同一 Prettier 配置。Go 和 sqlc 生成命令见 [后端说明](backend/README.md)，前端状态、来源与测试见 [前端说明](web/README.md)。生成目录只允许通过生成器更新。
 
@@ -87,15 +140,16 @@ pnpm --dir web e2e
 
 ## 代码组织与后续工作
 
-| 路径                                        | 责任                                 |
-| ------------------------------------------- | ------------------------------------ |
-| `api/openapi.yaml`                          | HTTP 请求、回执和错误契约。          |
-| `backend/cmd`                               | API 启动和显式迁移。                 |
-| `backend/internal/command`                  | 规范化、访问边界与事务幂等服务。     |
-| `backend/internal/httpapi`                  | 严格解码、HTTP 边界和中文错误映射。  |
-| `backend/db`、`backend/internal/store/sqlc` | 编号迁移、参数化查询和生成访问代码。 |
-| `web/src/features/commands`                 | 中文表单、查询恢复和回执展示。       |
-| `web/src/components/ui`                     | 自持 shadcn 基础控件及来源记录。     |
-| `scripts`、`deploy`、`.github`              | 本地入口、数据库依赖及 CI。          |
+| 路径                                        | 责任                                   |
+| ------------------------------------------- | -------------------------------------- |
+| `api/openapi.yaml`                          | HTTP 请求、回执和错误契约。            |
+| `backend/cmd`                               | API 启动和显式迁移。                   |
+| `backend/internal/identity`                 | OIDC、会话、CSRF、预置身份和项目投影。 |
+| `backend/internal/command`                  | 事务内成员权限、幂等受理与恢复查询。   |
+| `backend/internal/httpapi`                  | Cookie 会话、严格来源和中文错误映射。  |
+| `backend/db`、`backend/internal/store/sqlc` | 编号迁移、参数化查询和生成访问代码。   |
+| `web/src/features/commands`                 | 中文表单、查询恢复和回执展示。         |
+| `web/src/components/ui`                     | 自持 shadcn 基础控件及来源记录。       |
+| `scripts`、`deploy`、`.github`              | 本地入口、数据库依赖及 CI。            |
 
-当前没有生产 OIDC、Temporal、Runner、模型调用、SSE 或目标探测能力。后续沿已批准路线建设真实授权、持久化编排、隔离执行、证据和发现闭环；首版自主能力上限仍为主动枚举与非破坏性验证。具体代码约定见 [后端 spec](.trellis/spec/backend/index.md) 与 [前端 spec](.trellis/spec/frontend/index.md)。
+当前已实现标准 OIDC 合同和生产 Cookie 配置边界，但仍需针对实际企业 IdP 做部署联调；尚无 SAML、SCIM、JIT、Temporal、Runner、模型调用、SSE 或目标探测能力。后续沿已批准路线建设持久化编排、隔离执行、证据和发现闭环；首版自主能力上限仍为主动枚举与非破坏性验证。具体代码约定见 [后端 spec](.trellis/spec/backend/index.md) 与 [前端 spec](.trellis/spec/frontend/index.md)。

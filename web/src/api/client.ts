@@ -5,9 +5,9 @@ import type { ValidateFunction } from 'ajv';
 import type { components, paths } from './generated/schema';
 import schemas from './generated/schemas.json';
 
-/** 唯一 HTTP 契约来源是 api/openapi.yaml，下面只提供查询与校验边界。 */
-export type DevelopmentSession = components['schemas']['DevelopmentSession'];
-/** 已持久化的受理回执，不代表任何执行已完成。 */
+/** OpenAPI 是唯一传输合同；本模块只负责凭据边界和运行时响应校验。 */
+export type Session = components['schemas']['Session'];
+/** 已持久化的受理回执，不代表任何目标行为已执行。 */
 export type CommandReceipt = components['schemas']['CommandReceipt'];
 /** 与稳定命令 ID 绑定的创建参数。 */
 export type CreateTaskDraftCommand = components['schemas']['CreateTaskDraftCommand'];
@@ -21,12 +21,17 @@ function schemaValidator<T>(name: keyof components['schemas']): ValidateFunction
   return validator.compile<T>({ $ref: `mousehole#/$defs/${name}` });
 }
 
-const validateSession = schemaValidator<DevelopmentSession>('DevelopmentSession');
+const validateSession = schemaValidator<Session>('Session');
 const validateReceipt = schemaValidator<CommandReceipt>('CommandReceipt');
 const validateError = schemaValidator<APIError>('APIError');
 const client = createClient<paths>({ baseUrl: window.location.origin });
-const developmentHeader = { 'X-Mousehole-Development': 'true' } as const;
 const commandPath = '/api/v1/projects/{project_id}/commands/{command_id}';
+let currentSession: Session | null = null;
+
+/** 受保护写请求读取内存中的 CSRF token；Cookie 由浏览器自动管理。 */
+export function setSessionMemory(session: Session | null) {
+  currentSession = session;
+}
 
 /** API 错误只携带已校验的公开信息，未知网络失败不会被解释为未受理。 */
 export class CommandAPIError extends Error {
@@ -45,7 +50,6 @@ export class CommandAPIError extends Error {
 }
 
 function parseReceipt(value: unknown, projectId: string, commandId: string): CommandReceipt {
-  // RFC3339 闰秒可通过 schema，但浏览器无法表示；展示前还须验证日期可解析。
   if (
     !validateReceipt(value) ||
     value.project_id !== projectId ||
@@ -57,16 +61,29 @@ function parseReceipt(value: unknown, projectId: string, commandId: string): Com
   return value;
 }
 
-/** 查询显式开发身份；超时只影响页面连接状态。 */
-export async function getDevelopmentSession(signal: AbortSignal): Promise<DevelopmentSession> {
+/** 查询当前服务端会话；401 由页面显示登录入口，响应只保存在 Query 与内存。 */
+export async function getSession(signal: AbortSignal): Promise<Session> {
   const { data, error, response } = await client.GET('/api/v1/session', {
-    params: { header: developmentHeader },
+    credentials: 'include',
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
   });
   if (!response.ok) throw new CommandAPIError(response.status, error);
-  if (response.status !== 200) throw new CommandAPIError(0, null);
-  if (!validateSession(data)) throw new CommandAPIError(0, null);
+  if (response.status !== 200 || !validateSession(data)) throw new CommandAPIError(0, null);
+  currentSession = data;
   return data;
+}
+
+/** 撤销当前 Cookie 会话；请求仍需 session-bound CSRF 和精确来源。 */
+export async function logout(): Promise<void> {
+  const csrf = currentSession?.csrf_token;
+  if (!csrf) throw new CommandAPIError(403, null);
+  const { error, response } = await client.POST('/api/v1/auth/logout', {
+    credentials: 'include',
+    params: { header: { 'X-CSRF-Token': csrf } },
+  });
+  if (!response.ok) throw new CommandAPIError(response.status, error);
+  if (response.status !== 204) throw new CommandAPIError(0, null);
+  currentSession = null;
 }
 
 /**
@@ -78,8 +95,14 @@ export async function acceptCommand(
   commandId: string,
   body: CreateTaskDraftCommand,
 ): Promise<CommandReceipt> {
+  const csrf = currentSession?.csrf_token;
+  if (!csrf) throw new CommandAPIError(401, null);
   const { data, error, response } = await client.PUT(commandPath, {
-    params: { path: { project_id: projectId, command_id: commandId }, header: developmentHeader },
+    credentials: 'include',
+    params: {
+      path: { project_id: projectId, command_id: commandId },
+      header: { 'X-CSRF-Token': csrf },
+    },
     body,
     signal: AbortSignal.timeout(15_000),
   });
@@ -98,26 +121,25 @@ export async function getCommandReceipt(
   expectedTitle: string | null = null,
 ): Promise<CommandReceipt> {
   const { data, error, response } = await client.GET(commandPath, {
-    params: { path: { project_id: projectId, command_id: commandId }, header: developmentHeader },
+    credentials: 'include',
+    params: { path: { project_id: projectId, command_id: commandId } },
     signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]),
   });
   if (!response.ok) throw new CommandAPIError(response.status, error);
   if (response.status !== 200) throw new CommandAPIError(0, null);
   const receipt = parseReceipt(data, projectId, commandId);
-  if (expectedTitle !== null && receipt.task_title !== expectedTitle) {
+  if (expectedTitle !== null && receipt.task_title !== expectedTitle)
     throw new CommandAPIError(0, null);
-  }
   return receipt;
 }
 
-/** 仅明确的请求拒绝可解锁新操作；依赖失败始终保留未知结果。 */
+/** 只有明确业务拒绝才解锁新操作；认证、依赖失败和未知响应保持待确认。 */
 export function isDefinitiveRejection(error: unknown): error is CommandAPIError {
   if (!(error instanceof CommandAPIError)) return false;
   switch (error.code) {
     case 'invalid_request':
       return error.status === 400;
     case 'project_forbidden':
-    case 'development_only':
       return error.status === 403;
     case 'idempotency_conflict':
       return error.status === 409;

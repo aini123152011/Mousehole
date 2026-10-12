@@ -10,6 +10,21 @@
 
 从根运行 `python scripts/check.py --scope web`，依次执行根/Web Prettier、ESLint、tsc、生成漂移、Vitest 和生产构建。前端依赖通过唯一 pnpm-lock.yaml 和 frozen-lockfile 安装，版本见 package.json 与根工具清单。
 
-真实 API 已迁移并启动后运行 `pnpm --dir web e2e`。mock/组件检查证明交互逻辑，真实 E2E 证明 Vite 代理、Go、数据库贯通；二者准确区分。浏览器验收覆盖创建/恢复、响应丢失、明确冲突、键盘与窄屏。只测试风险与可观察行为，不为格式或注释新增镜像测试。
+真实 API、PostgreSQL 和合成 OIDC issuer 已启动后运行 `pnpm --dir web e2e`。mock/组件检查证明交互逻辑，真实 E2E 证明登录、Cookie 会话、Vite 代理、Go 和数据库贯通；二者准确区分。浏览器验收覆盖登录/退出、创建/恢复、响应丢失、明确冲突、权限撤销、键盘与窄屏，并断言 URL 与 Web Storage 不含协议秘密。Playwright trace 会保存请求头和 Cookie，身份流程不得生成或上传未脱敏 trace；涉及 Cookie、CSRF、DSN 的断言和子进程错误只输出固定说明或布尔结果。只测试风险与可观察行为，不为格式或注释新增镜像测试。
+
+E2E 登录 helper 必须先等待 session 加载后的“登录或工作台”任一稳定状态，再决定是否点击登录。禁止在 `page.goto` 后立即用 `isVisible()` 分支；它不等待 React 首次渲染，会让测试根本没有发起 OIDC 流程。
+
+```typescript
+import { expect, type Page } from '@playwright/test';
+
+async function login(page: Page) {
+  await page.goto('/');
+  const loginLink = page.getByRole('link', { name: '登录' });
+  const workspace = page.getByRole('textbox', { name: '任务标题' });
+  await expect(loginLink.or(workspace)).toBeVisible();
+  if (await loginLink.isVisible()) await loginLink.click();
+  await expect(workspace).toBeVisible();
+}
+```
 
 禁止提交控制台调试、关闭 Hooks 规则、把未知结果写成失败、自动重发未知 PUT、UI 乐观伪造受理、敏感 localStorage、复制手写 OpenAPI 类型。已执行与未执行检查分别登记。

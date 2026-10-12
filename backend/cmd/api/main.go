@@ -1,4 +1,4 @@
-// Command api 启动仅面向本地开发的草稿命令服务；不执行数据库迁移。
+// Command api 启动企业身份与草稿命令服务；不执行数据库迁移。
 package main
 
 import (
@@ -17,6 +17,7 @@ import (
 
 	"mousehole/backend/internal/command"
 	"mousehole/backend/internal/httpapi"
+	"mousehole/backend/internal/identity"
 )
 
 func main() {
@@ -49,7 +50,11 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return errors.New("无法连接数据库，请检查本地服务和配置")
 	}
-	handler, err := httpapi.NewHandler(cfg, command.NewService(pool), logger)
+	identityService, err := identity.NewService(ctx, cfg.IdentityConfig(), pool)
+	if err != nil {
+		return err
+	}
+	handler, err := httpapi.NewHandler(cfg, command.NewService(pool), identityService, logger)
 	if err != nil {
 		return err
 	}
@@ -61,7 +66,7 @@ func run(logger *slog.Logger) error {
 	result := make(chan error, 1)
 	// 入口拥有此 goroutine，退出前通过 result 等待 HTTP 服务停止。
 	go func() { result <- server.Serve(listener) }()
-	logger.Info("本地开发 API 已启动", "event", "api_started", "listen_addr", cfg.ListenAddr, "mode", cfg.Mode)
+	logger.Info("API 已启动", "event", "api_started", "listen_addr", cfg.ListenAddr, "mode", cfg.Mode)
 	select {
 	case err = <-result:
 		if errors.Is(err, http.ErrServerClosed) {
@@ -78,7 +83,7 @@ func run(logger *slog.Logger) error {
 			return errors.New("HTTP 服务未在宽限期内完成停机")
 		}
 		<-result
-		logger.Info("本地开发 API 已停止", "event", "api_stopped")
+		logger.Info("API 已停止", "event", "api_stopped")
 		return nil
 	}
 }

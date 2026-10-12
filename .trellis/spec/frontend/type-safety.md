@@ -6,11 +6,11 @@
 
 ## 2. 签名
 
-`getDevelopmentSession(signal)`、`acceptCommand(projectId, commandId, body)`、`getCommandReceipt(projectId, commandId, signal, expectedTitle?)` 返回生成的类型。`CommandAPIError` 保存已校验 status、code、requestId。
+`getSession(signal)`、`acceptCommand(projectId, commandId, body)`、`getCommandReceipt(projectId, commandId, signal, expectedTitle?)` 返回生成的类型；`logout()` 撤销当前 Cookie 会话，`setSessionMemory(session)` 只维护写请求所需的内存 CSRF。`CommandAPIError` 保存已校验 status、code、requestId。
 
 ## 3. 合同
 
-TS 开启 strict、noUncheckedIndexedAccess、exactOptionalPropertyTypes、noUnusedLocals/Parameters。HTTP 字段保留生成 snake_case；手写变量 camelCase。openapi-fetch 提供请求类型，Ajv2020 使用生成 JSON Schema 校验未知响应，二者都需要。表单 RHF/Zod 校验输入，标题 Unicode trim/count 规则与 Go 一致，不依赖浏览器 maxlength 的 UTF-16 计数。
+TS 开启 strict、noUncheckedIndexedAccess、exactOptionalPropertyTypes、noUnusedLocals/Parameters。HTTP 字段保留生成 snake_case；手写变量 camelCase。openapi-fetch 提供请求类型，Ajv2020 使用生成 JSON Schema 校验未知响应，二者都需要。受保护请求显式使用 `credentials: include`，写请求从内存 session 取得 `X-CSRF-Token`，不得从 Web Storage 或 URL 恢复。表单 RHF/Zod 校验输入，标题 Unicode trim/count 规则与 Go 一致，不依赖浏览器 maxlength 的 UTF-16 计数。
 
 回执包含 command_id/project_id/kind/state/task_id/task_title/task_state/version/accepted_at。固定 accepted/draft/版本字符串与 UTC 时间必须校验；accepted_at 同时满足 date-time 和 Z 后缀约束，校验后还须确认 Date.parse 结果有限，防止闰秒等浏览器不可表示时间导致展示崩溃。项目和命令必须匹配请求；本页提交还核对原标题。客户端不把 version 转 number。生成器头与许可证可英文，手写说明中文。
 

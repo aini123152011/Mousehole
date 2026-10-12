@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	// DevelopmentActorID 是本地开发适配器唯一的合成身份，不是生产凭据。
+	// DevelopmentActorID 是已发布旧测试夹具使用的历史 ID，不是运行时认证入口。
 	DevelopmentActorID = "00000000-0000-4000-8000-000000000001"
-	// DevelopmentProjectID 限定本切片可访问的唯一合成项目。
+	// DevelopmentProjectID 是已发布旧测试夹具使用的历史 ID，不是运行时授权入口。
 	DevelopmentProjectID = "00000000-0000-4000-8000-000000000002"
 	// CreateTaskDraft 是本切片唯一支持的命令，不产生目标执行行为。
 	CreateTaskDraft = "create_task_draft"
@@ -19,7 +19,7 @@ const (
 var (
 	// ErrInvalidRequest 表示参数或命令类型不满足合同。
 	ErrInvalidRequest = errors.New("命令参数无效")
-	// ErrForbidden 表示身份或项目不在本地开发边界内。
+	// ErrForbidden 表示当前活动成员关系不具备所需项目能力。
 	ErrForbidden = errors.New("无权访问该项目")
 	// ErrNotFound 表示当前尚未读取到回执，不证明并发提交一定失败。
 	ErrNotFound = errors.New("暂未查询到命令")
@@ -68,9 +68,17 @@ func NormalizeRequest(request Request) (Request, error) {
 	return request, nil
 }
 
-func validateAccess(actorID, projectID, commandID string) error {
-	if !ValidID(projectID) || !ValidID(commandID) {
+func validateIDs(actorID, projectID, commandID string) error {
+	if !ValidID(actorID) || !ValidID(projectID) || !ValidID(commandID) {
 		return ErrInvalidRequest
+	}
+	return nil
+}
+
+// validateAccess 仅为旧领域单元测试保留；HTTP 与服务运行时使用成员关系事务锁。
+func validateAccess(actorID, projectID, commandID string) error {
+	if err := validateIDs(actorID, projectID, commandID); err != nil {
+		return err
 	}
 	if actorID != DevelopmentActorID || projectID != DevelopmentProjectID {
 		return ErrForbidden

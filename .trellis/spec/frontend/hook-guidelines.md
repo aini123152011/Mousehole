@@ -2,15 +2,15 @@
 
 ## 1. 范围与触发
 
-适用于 `useCommandWorkspace(projectId)` 的创建、原命令查询与新草稿交互。依据 [实现](../../../web/src/features/commands/use-command-workspace.ts)。
+适用于 `useCommandWorkspace(actorId, projectId)` 的创建、原命令查询与新草稿交互。依据 [实现](../../../web/src/features/commands/use-command-workspace.ts)。
 
 ## 2. 签名
 
-`createDraft(title: string)`、`lookup(commandId: string)`、`startNewDraft()`；返回 selection、phase、notice、receipt、isQuerying 及交互允许条件。Query key 为 `['commands', projectId, commandId]`。
+`createDraft(title: string)`、`lookup(commandId: string)`、`startNewDraft()`；返回 selection、phase、notice、receipt、isQuerying 及交互允许条件。Query key 为 `['commands', actorId, projectId, commandId]`，不得让不同登录身份共享同项目、同命令的回执缓存。
 
 ## 3. 合同
 
-PUT 前生成 crypto.randomUUID，规范化标题并同步 ref 锁定 ID/参数，然后更新 React 展示状态；防止同一渲染前重复事件发送第二个 PUT。mutation/query 显式 retry:false。查询传播 AbortSignal 并设置 15 秒预算。查询代次 `generation` 使迟到响应不改变当前选择的 phase/notice；旧项目/命令结果只能进入自己的 Query key。
+PUT 前生成 crypto.randomUUID，规范化标题并同步 ref 锁定 ID/参数，然后更新 React 展示状态；防止同一渲染前重复事件发送第二个 PUT。mutation/query 显式 retry:false。查询传播 AbortSignal 并设置 15 秒预算。查询代次 `generation` 使迟到响应不改变当前选择的 phase/notice；旧身份、项目或命令结果只能进入自己的 Query key。组件以 `actorId:projectId` 为 key，身份或项目切换会重置局部未知结果状态。
 
 本页已提交但未知时，不能换 ID 查询来绕过锁，不能新建草稿；只查询原 ID。手输恢复属于 lookup，只查询不产生写入。Hook 中文 TSDoc 解释所有权、同步锁与未知语义，不为返回异步状态写虚假的同步 @throws。
 

@@ -12,7 +12,7 @@ from tooling import ROOT, check_go_version, check_web_versions, run
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("database", "migrate", "migration-status", "api", "web"))
+    parser.add_argument("action", choices=("database", "migrate", "migration-status", "oidc", "api", "web"))
     args = parser.parse_args()
     if args.action == "database":
         compose = ["docker", "compose", "-f", "deploy/compose.yaml"]
@@ -24,6 +24,9 @@ def main() -> None:
         return
     if args.action == "web":
         run([check_web_versions(), "dev"], ROOT / "web")
+        return
+    if args.action == "oidc":
+        run([check_go_version(), "run", "./cmd/test-oidc"], ROOT / "backend")
         return
     if os.environ.get("MOUSEHOLE_MODE") != "development" or not os.environ.get("MOUSEHOLE_DATABASE_URL"):
         raise RuntimeError("必须显式设置 MOUSEHOLE_MODE=development 和 MOUSEHOLE_DATABASE_URL；参见 .env.example。")

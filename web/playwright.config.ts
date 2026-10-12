@@ -5,7 +5,8 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   reporter: 'list',
-  use: { baseURL: 'http://127.0.0.1:5173', trace: 'retain-on-failure' },
+  // Playwright trace 会收集请求头和 Cookie；本项目的诊断产物禁止保存会话秘密。
+  use: { baseURL: 'http://127.0.0.1:5173', trace: 'off' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   // 后端与数据库由调用者显式启动；缺依赖时真实失败，不用模拟数据掩盖。
   webServer: {

@@ -1,8 +1,8 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import { developmentSession, receiptFor } from '../test/fixtures';
+import { analystProject, enterpriseSession, receiptFor } from '../test/fixtures';
 
 const commandId = '00000000-0000-4000-8000-000000000003';
-const projectId = developmentSession.project_id;
+const projectId = analystProject.id;
 const body = { kind: 'create_task_draft' as const, payload: { title: '内部平台评估准备' } };
 let fetchMock = vi.fn<typeof fetch>();
 
@@ -22,9 +22,10 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('OpenAPI 运行时边界', () => {
-  it.each([200, 201])('接受 HTTP %i 回执并显式发送开发标记和稳定 ID', async (status) => {
+  it.each([200, 201])('接受 HTTP %i 回执并发送 Cookie 凭据、CSRF 和稳定 ID', async (status) => {
     fetchMock.mockResolvedValue(response(receiptFor(commandId), status));
     const api = await import('./client');
+    api.setSessionMemory(enterpriseSession);
     await expect(api.acceptCommand(projectId, commandId, body)).resolves.toEqual(
       receiptFor(commandId),
     );
@@ -33,7 +34,8 @@ describe('OpenAPI 运行时边界', () => {
     if (!(request instanceof Request)) throw new Error('预期客户端生成 Request。');
     expect(request.url).toContain(`/projects/${projectId}/commands/${commandId}`);
     expect(request.method).toBe('PUT');
-    expect(request.headers.get('X-Mousehole-Development')).toBe('true');
+    expect(request.credentials).toBe('include');
+    expect(request.headers.get('X-CSRF-Token')).toBe(enterpriseSession.csrf_token);
     expect(await request.json()).toEqual(body);
   });
 
@@ -59,6 +61,7 @@ describe('OpenAPI 运行时边界', () => {
     async ({ value, status }) => {
       fetchMock.mockResolvedValue(response(value, status));
       const api = await import('./client');
+      api.setSessionMemory(enterpriseSession);
       await expect(api.acceptCommand(projectId, commandId, body)).rejects.toMatchObject({
         code: 'unconfirmed_response',
       });
@@ -77,6 +80,7 @@ describe('OpenAPI 运行时边界', () => {
   it('网络失败只发送一次，不在传输层重试 PUT', async () => {
     fetchMock.mockRejectedValue(new TypeError('合成网络中断'));
     const api = await import('./client');
+    api.setSessionMemory(enterpriseSession);
     await expect(api.acceptCommand(projectId, commandId, body)).rejects.toThrow('合成网络中断');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -94,13 +98,11 @@ describe('OpenAPI 运行时边界', () => {
 
   it('session 字段来源于合同并拒绝未知字段', async () => {
     fetchMock
-      .mockResolvedValueOnce(response(developmentSession))
-      .mockResolvedValueOnce(response({ ...developmentSession, token: '合成无效字段' }));
+      .mockResolvedValueOnce(response(enterpriseSession))
+      .mockResolvedValueOnce(response({ ...enterpriseSession, token: '合成无效字段' }));
     const api = await import('./client');
-    await expect(api.getDevelopmentSession(new AbortController().signal)).resolves.toEqual(
-      developmentSession,
-    );
-    await expect(api.getDevelopmentSession(new AbortController().signal)).rejects.toMatchObject({
+    await expect(api.getSession(new AbortController().signal)).resolves.toEqual(enterpriseSession);
+    await expect(api.getSession(new AbortController().signal)).rejects.toMatchObject({
       code: 'unconfirmed_response',
     });
   });

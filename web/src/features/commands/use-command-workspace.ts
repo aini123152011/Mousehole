@@ -5,6 +5,7 @@ import {
   CommandAPIError,
   getCommandReceipt,
   isDefinitiveRejection,
+  setSessionMemory,
 } from '../../api/client';
 import type { CreateTaskDraftCommand } from '../../api/client';
 import { normalizeTaskTitle } from './command-schema';
@@ -24,8 +25,8 @@ interface AdmissionNotice {
 
 /** 缓存身份包含项目和命令，迟到查询不能替换当前选择。 */
 export const commandKeys = {
-  detail: (projectId: string, commandId: string | null) =>
-    ['commands', projectId, commandId] as const,
+  detail: (actorId: string, projectId: string, commandId: string | null) =>
+    ['commands', actorId, projectId, commandId] as const,
 };
 
 function noticeFor(error: unknown, isLookup: boolean): AdmissionNotice {
@@ -41,12 +42,32 @@ function noticeFor(error: unknown, isLookup: boolean): AdmissionNotice {
   return { message: '连接中断，受理状态待确认。请保留原命令 ID 并查询。', requestId: null };
 }
 
+function handleAccessError(
+  queryClient: ReturnType<typeof useQueryClient>,
+  error: unknown,
+  actorId: string,
+  projectId: string,
+) {
+  if (error instanceof CommandAPIError && error.status === 401) {
+    setSessionMemory(null);
+    queryClient.removeQueries({ queryKey: ['commands'] });
+    void queryClient.invalidateQueries({ queryKey: ['session'] });
+  } else if (
+    error instanceof CommandAPIError &&
+    error.status === 403 &&
+    error.code === 'project_forbidden'
+  ) {
+    queryClient.removeQueries({ queryKey: ['commands', actorId, projectId] });
+    void queryClient.invalidateQueries({ queryKey: ['session'] });
+  }
+}
+
 /**
  * 管理一次提交及人工恢复查询。回执只保存在 TanStack Query，局部状态仅表达交互。
  * 提交前同步锁定 ID/参数；响应丢失不会自动重发，也不会允许换参数创建另一命令。
  * 查询使用选择代次隔离迟到结果，已有 ID 的查询不创建草稿。
  */
-export function useCommandWorkspace(projectId: string) {
+export function useCommandWorkspace(actorId: string, projectId: string) {
   const queryClient = useQueryClient();
   const [selection, setSelection] = useState<CommandSelection | null>(null);
   const [phase, setPhase] = useState<AdmissionPhase>('idle');
@@ -69,7 +90,7 @@ export function useCommandWorkspace(projectId: string) {
   }
 
   const query = useQuery({
-    queryKey: commandKeys.detail(projectId, selection?.commandId ?? null),
+    queryKey: commandKeys.detail(actorId, projectId, selection?.commandId ?? null),
     queryFn: ({ signal }) => {
       if (!selection) throw new Error('尚未选择命令。');
       return getCommandReceipt(projectId, selection.commandId, signal, selection.title);
@@ -98,10 +119,11 @@ export function useCommandWorkspace(projectId: string) {
         commandId,
         body: { kind: 'create_task_draft', payload: { title: normalizedTitle } },
       });
-      queryClient.setQueryData(commandKeys.detail(projectId, commandId), receipt);
+      queryClient.setQueryData(commandKeys.detail(actorId, projectId, commandId), receipt);
       if (generation.current === attempt) changePhase('accepted');
     } catch (error: unknown) {
       if (generation.current !== attempt) return;
+      handleAccessError(queryClient, error, actorId, projectId);
       setNotice(noticeFor(error, false));
       changePhase(isDefinitiveRejection(error) ? 'rejected' : 'unknown');
     }
@@ -120,7 +142,9 @@ export function useCommandWorkspace(projectId: string) {
     const attempt = ++generation.current;
     const isSameCommand = current.selection?.commandId === commandId;
     const expectedTitle = isSameCommand ? (current.selection?.title ?? null) : null;
-    const previousReceipt = queryClient.getQueryData(commandKeys.detail(projectId, commandId));
+    const previousReceipt = queryClient.getQueryData(
+      commandKeys.detail(actorId, projectId, commandId),
+    );
     if (!isSameCommand) {
       selectCommand({ commandId, source: 'lookup', title: null });
       changePhase('unknown');
@@ -128,7 +152,7 @@ export function useCommandWorkspace(projectId: string) {
     setNotice(null);
     try {
       await queryClient.fetchQuery({
-        queryKey: commandKeys.detail(projectId, commandId),
+        queryKey: commandKeys.detail(actorId, projectId, commandId),
         queryFn: ({ signal }) => getCommandReceipt(projectId, commandId, signal, expectedTitle),
         staleTime: 0,
         retry: false,
@@ -136,6 +160,7 @@ export function useCommandWorkspace(projectId: string) {
       if (generation.current === attempt) changePhase('accepted');
     } catch (error: unknown) {
       if (generation.current !== attempt) return;
+      handleAccessError(queryClient, error, actorId, projectId);
       // 即便查询拒绝或超时，也不据此解锁本页曾发出的未知提交。
       setNotice(
         previousReceipt === undefined

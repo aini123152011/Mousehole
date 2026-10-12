@@ -8,6 +8,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// 身份与成员管理审计；summary 只能保存非秘密的稳定摘要。
+type AccessAuditEvent struct {
+	ID             pgtype.UUID
+	ActorID        pgtype.UUID
+	OperatorSource string
+	EventType      string
+	ObjectType     string
+	ObjectID       string
+	RequestID      pgtype.UUID
+	Summary        []byte
+	OccurredAt     pgtype.Timestamptz
+}
+
 // 与命令及草稿同事务提交的业务审计，不记录完整请求参数。
 type AuditEvent struct {
 	ProjectID  pgtype.UUID
@@ -36,6 +49,30 @@ type Command struct {
 	AcceptedAt pgtype.Timestamptz
 }
 
+// 精确 issuer 与 subject 的预置绑定；email 和名称不参与授权。
+type ExternalIdentity struct {
+	Issuer      string
+	Subject     string
+	UserID      pgtype.UUID
+	Email       pgtype.Text
+	DisplayName pgtype.Text
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+// 一次性登录尝试；摘要防止数据库泄露可重放 state 或浏览器绑定值。
+type OidcLoginAttempt struct {
+	StateDigest   []byte
+	BrowserDigest []byte
+	NonceDigest   []byte
+	// 使用 auth key 派生子密钥加密的短期 PKCE verifier。
+	PkceVerifierEncrypted []byte
+	ReturnPath            string
+	CreatedAt             pgtype.Timestamptz
+	ExpiresAt             pgtype.Timestamptz
+	ConsumedAt            pgtype.Timestamptz
+}
+
 // 事务事件记录；本切片没有 dispatcher，不消费或触发外部行为。
 type OutboxEvent struct {
 	ProjectID pgtype.UUID
@@ -43,6 +80,38 @@ type OutboxEvent struct {
 	TaskID    pgtype.UUID
 	EventType string
 	CreatedAt pgtype.Timestamptz
+}
+
+// 单企业部署内的项目访问边界。
+type Project struct {
+	ID        pgtype.UUID
+	Name      string
+	Status    string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+// 项目角色权威；撤销保留原行并递增 version，供事务锁串行化。
+type ProjectMembership struct {
+	ProjectID pgtype.UUID
+	UserID    pgtype.UUID
+	Role      string
+	State     string
+	Version   int64
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+	RevokedAt pgtype.Timestamptz
+}
+
+// 服务端会话；只保存随机 Cookie 原值的 SHA-256 摘要。
+type Session struct {
+	TokenDigest       []byte
+	UserID            pgtype.UUID
+	CreatedAt         pgtype.Timestamptz
+	LastSeenAt        pgtype.Timestamptz
+	IdleExpiresAt     pgtype.Timestamptz
+	AbsoluteExpiresAt pgtype.Timestamptz
+	RevokedAt         pgtype.Timestamptz
 }
 
 // 仅保存任务草稿，不具有执行能力。
@@ -53,4 +122,14 @@ type Task struct {
 	Title     string
 	State     string
 	Version   int64
+}
+
+// 平台稳定用户；外部身份资料变化不会改变 actor UUID。
+type User struct {
+	ID          pgtype.UUID
+	DisplayName string
+	Email       pgtype.Text
+	Status      string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
 }

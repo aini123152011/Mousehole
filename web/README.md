@@ -4,13 +4,13 @@
 
 ## 技术与职责
 
-采用 React 19、TypeScript、Vite、Tailwind CSS 4 和自持 shadcn/ui 基础控件。TanStack Query 保存服务端回执；React 局部状态表达命令选择、提交过程和提示；React Hook Form/Zod 校验表单。没有第二份业务状态仓库或 localStorage 持久化。
+采用 React 19、TypeScript、Vite、Tailwind CSS 4 和自持 shadcn/ui 基础控件。TanStack Query 保存服务端 session、项目投影和命令回执；React 局部状态表达项目选择、命令选择、提交过程和提示；React Hook Form/Zod 校验表单。浏览器不保存 token、Cookie、CSRF 或服务器快照到 localStorage/sessionStorage。
 
 | 路径                     | 职责                                                               |
 | ------------------------ | ------------------------------------------------------------------ |
-| `src/app/`               | 页面外壳、开发身份查询、Query 缓存配置                             |
+| `src/app/`               | 页面外壳、企业会话查询、项目选择、退出和 Query 缓存配置            |
 | `src/features/commands/` | 草稿表单、原 ID 恢复、交互锁和回执展示                             |
-| `src/api/client.ts`      | 生成 HTTP client、开发标记、超时、边界校验                         |
+| `src/api/client.ts`      | 生成 HTTP client、Cookie 凭据、CSRF、超时和边界校验                |
 | `src/api/generated/`     | 从 [OpenAPI](../api/openapi.yaml) 生成的类型和 JSON Schema         |
 | `src/components/ui/`     | 自持基础控件，来源及升级规则见 [说明](src/components/ui/README.md) |
 | `src/styles/globals.css` | 统一 token、中文排版、焦点和响应式布局                             |
@@ -25,7 +25,7 @@ pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-Linux 使用相同 pnpm 命令。浏览器地址是 `http://127.0.0.1:5173`；Vite 严格绑定此 loopback 地址与端口。`/api` 代理至 `http://127.0.0.1:8080` 并改写 Host，后端校验 Host/Origin。API 未启动时显示连接错误，用户可重新连接。该样本不能以 Vite 开发服务交付生产环境。
+Linux 使用相同 pnpm 命令。浏览器地址是 `http://127.0.0.1:5173`；Vite 严格绑定此 loopback 地址与端口。`/api` 代理至 `http://127.0.0.1:8080` 并改写 Host，后端校验 Host/Origin。首次访问首屏显示企业登录入口；管理员必须先预置 `(issuer, subject)` 和项目角色。回调成功后服务端设置 HttpOnly Cookie，前端只把 session 响应内的 CSRF token 保存在内存。该样本不能以 Vite 开发服务交付生产环境。
 
 `pnpm-workspace.yaml` 要求新依赖发布满 24 小时，不设置包级豁免。React Hook Form 7.89.0、Zod 4.6.5 满足窗口；依赖精确版本及唯一 lockfile 纳入审查。`ajv-formats` 2.1.1 满足已锁定 resolver 的 peer 约束。
 
@@ -35,7 +35,7 @@ Linux 使用相同 pnpm 命令。浏览器地址是 `http://127.0.0.1:5173`；Vi
 
 PUT 只发送一次，15 秒超时；网络中断、5xx、无效回执或参数失配均显示“受理待确认”。此时保持原 ID 和参数，禁用新建和其他 ID 查询，只允许 GET 原命令。GET 404 仍不证明未受理，用户可继续查询。明确匹配的 4xx 拒绝后才允许显式新建另一份草稿。
 
-刷新页面会丢弃页面内交互和缓存；用户需保存原 ID，再用“找回已有命令”输入它。查询本身不产生 PUT；纯查询失败允许返回新建。已确认回执再次查询失败时保留上次记录并显示未更新提示。选择代次和包含项目/命令的 Query key 隔离迟到响应。
+刷新页面会丢弃页面内命令交互和缓存，并通过 Cookie 重新读取服务端会话；用户需保存原 ID，再用“找回已有命令”输入它。查询本身不产生 PUT；纯查询失败允许返回新建。已确认回执再次查询失败时保留上次记录并显示未更新提示。选择代次和包含 actor/项目/命令的 Query key 隔离迟到响应；退出、401、项目 403 与项目切换按范围清理缓存。
 
 ## 契约生成与验证
 
@@ -61,4 +61,4 @@ pnpm exec playwright install chromium
 pnpm run e2e
 ```
 
-测试使用随机 ID 的合成草稿，覆盖真实创建、同 ID 回放/冲突、刷新找回、提交成功后浏览器丢包恢复、手机布局及键盘焦点。截图位于被忽略的 `test-results/`。本切片没有企业 OIDC、完整权限、SSE、执行工作流或完整读屏器认证；相应能力按后续阶段建设。
+测试使用随机 ID 的合成草稿，覆盖真实 OIDC 登录、Cookie 会话刷新/退出、创建、同 ID 回放/冲突、刷新找回、提交成功后浏览器丢包恢复、Web Storage 无秘密、手机布局及键盘焦点。截图位于被忽略的 `test-results/`。本切片尚未提供 SAML、SCIM、JIT、Web 成员管理、执行权限、SSE、执行工作流或完整读屏器认证；相应能力按后续阶段建设。

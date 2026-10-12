@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommandAPIError } from '../../api/client';
 import { createQueryClient } from '../../app/query-client';
-import { developmentSession, receiptFor } from '../../test/fixtures';
+import { analystProject, receiptFor } from '../../test/fixtures';
 import { CommandWorkspace } from './command-workspace';
 
 const apiMock = vi.hoisted(() => ({ acceptCommand: vi.fn(), getCommandReceipt: vi.fn() }));
@@ -23,7 +23,7 @@ beforeEach(() => {
 function setup() {
   render(
     <QueryClientProvider client={createQueryClient()}>
-      <CommandWorkspace session={developmentSession} />
+      <CommandWorkspace actorId="10000000-0000-4000-8000-000000000001" project={analystProject} />
     </QueryClientProvider>,
   );
   return userEvent.setup();

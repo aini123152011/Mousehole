@@ -30,7 +30,14 @@ jobs:
       MOUSEHOLE_DATABASE_URL: postgres://mousehole:mousehole-ci-only@127.0.0.1:55432/mousehole_test?sslmode=disable
       MOUSEHOLE_TEST_DATABASE_URL: postgres://mousehole:mousehole-ci-only@127.0.0.1:55432/mousehole_test?sslmode=disable
       MOUSEHOLE_LISTEN_ADDR: 127.0.0.1:8080
+      MOUSEHOLE_PUBLIC_URL: http://127.0.0.1:8080
       MOUSEHOLE_WEB_ORIGIN: http://127.0.0.1:5173
+      MOUSEHOLE_OIDC_ISSUER: http://127.0.0.1:9090
+      MOUSEHOLE_OIDC_CLIENT_ID: mousehole-local
+      MOUSEHOLE_OIDC_CLIENT_SECRET: mousehole-local-secret
+      MOUSEHOLE_AUTH_KEY: bW91c2Vob2xlLWxvY2FsLWF1dGgta2V5LTMyYnl0ZXM=
+      MOUSEHOLE_TEST_OIDC_LISTEN_ADDR: 127.0.0.1:9090
+      MOUSEHOLE_TEST_OIDC_SUBJECT: mousehole-local-analyst
       GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@v4
@@ -63,15 +70,33 @@ jobs:
         run: |
           mkdir -p .local/bin
           (cd backend && go build -o ../.local/bin/api ./cmd/api)
+          (cd backend && go build -o ../.local/bin/admin ./cmd/admin)
+          (cd backend && go build -o ../.local/bin/test-oidc ./cmd/test-oidc)
+          .local/bin/test-oidc > .local/oidc.log 2>&1 &
+          oidc_pid=$!
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9090/.well-known/openid-configuration > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:9090/.well-known/openid-configuration
+          .local/bin/admin provision-user \
+            --database-url "$MOUSEHOLE_DATABASE_URL" \
+            --issuer "$MOUSEHOLE_OIDC_ISSUER" \
+            --subject "$MOUSEHOLE_TEST_OIDC_SUBJECT" \
+            --user-id 10000000-0000-4000-8000-000000000001 \
+            --display-name CI分析员 \
+            --project-id 10000000-0000-4000-8000-000000000002 \
+            --project-name CI评估项目 \
+            --role analyst
           .local/bin/api > .local/api.log 2>&1 &
           api_pid=$!
-          trap 'kill "$api_pid"' EXIT
+          trap 'kill "$api_pid" "$oidc_pid"' EXIT
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:8080/healthz > /dev/null; then break; fi
             sleep 1
           done
           curl --fail --silent http://127.0.0.1:8080/healthz
-          pnpm --dir web e2e
+          MOUSEHOLE_E2E_ADMIN_BIN="$PWD/.local/bin/admin" pnpm --dir web e2e
       - name: 保留失败诊断
         if: failure()
         uses: actions/upload-artifact@v4
@@ -81,4 +106,5 @@ jobs:
             web/test-results/
             web/playwright-report/
             .local/api.log
+            .local/oidc.log
           if-no-files-found: ignore

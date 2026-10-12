@@ -17,4 +17,4 @@
 
 ## 质量检查
 
-根目录执行 `python scripts/check.py --scope web`。接口变更需要生成与生成漂移对比。真实端到端须先启动并迁移 API，再运行 `pnpm --dir web e2e`；Playwright 自动启动 Web。结果登记在 [验收记录](../../../docs/validation/p0-command-foundation.md)，不得把 mock 测试等同于真实数据库或全栈通过。
+根目录执行 `python scripts/check.py --scope web`。接口变更需要生成与生成漂移对比。真实端到端须先启动已迁移 API 和合成 OIDC issuer，再运行 `pnpm --dir web e2e`；Playwright 自动启动 Web。结果登记在 [身份切片验收记录](../../../docs/validation/p0-identity-access.md)，不得把 mock 测试等同于真实数据库或全栈通过。

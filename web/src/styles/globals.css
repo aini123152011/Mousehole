@@ -170,6 +170,8 @@ a:focus-visible {
   margin: 0 4px 18px;
   font-size: 14px;
   color: #d9e3d6;
+  width: calc(100% - 8px);
+  background: #24352b;
 }
 .project-switcher > svg {
   margin-left: auto;

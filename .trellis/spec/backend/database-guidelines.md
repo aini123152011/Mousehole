@@ -2,7 +2,7 @@
 
 ## 1. 范围与触发
 
-适用于草稿命令的受理、查询、表结构与 sqlc 生成。四类记录是当前原子边界，outbox 尚无消费者。依据 [服务](../../../backend/internal/command/service.go)、[迁移](../../../backend/db/migrations/00001_command_foundation.sql) 和 [查询](../../../backend/db/queries/commands.sql)。
+适用于身份预置、服务端会话、成员授权、草稿命令的受理与查询、表结构及 sqlc 生成。四类命令记录是当前原子边界，outbox 尚无消费者。依据 [命令服务](../../../backend/internal/command/service.go)、[身份存储](../../../backend/internal/identity/store.go)、[身份迁移](../../../backend/db/migrations/00002_identity_access.sql) 和数据库查询。
 
 ## 2. 签名
 
@@ -15,11 +15,15 @@ func (s *Service) Get(ctx context.Context, actorID, projectID, commandID string)
 
 ## 3. 合同
 
-`Accept` 先验证身份、项目和参数，再开启 `READ COMMITTED` 事务。`INSERT ... ON CONFLICT DO NOTHING` 通过唯一键等待竞争者；下一条查询读取已提交记录，核对 actor、kind、规范化标题。同参数返回原回执及 `created=false`，新记录同事务写命令、草稿、审计、outbox，提交成功后返回 `created=true`。
+`Accept` 先验证 ID 和参数，再开启 `READ COMMITTED` 事务。事务先以 `FOR SHARE` 锁定活动 user/project/membership 并检查 `task_draft:create`，随后才执行命令幂等逻辑。成员撤销更新同一 membership 行并取得排他锁：撤销先提交则命令拒绝，命令先提交则四类记录完整保留。`Get` 同样在事务内重验成员并要求命令 actor 等于当前 actor。
+
+`INSERT ... ON CONFLICT DO NOTHING` 通过唯一键等待竞争者；下一条查询读取已提交记录，核对 actor、kind、规范化标题。同参数返回原回执及 `created=false`，新记录同事务写命令、草稿、审计、outbox，提交成功后返回 `created=true`。bootstrap 在一个事务内幂等创建或核对 user、external identity、project、membership 并写管理审计；异参数或唯一绑定冲突不得覆盖原记录。
+
+管理员撤销必须先以 `FOR UPDATE` 锁定稳定用户或成员行，再在同一事务更新状态、撤销会话并写 `access_audit_events`。用户、成员、命令和历史审计都不物理删除；成员撤销递增 version。重复执行在目标已处于所需状态时成功返回，不重复写管理审计；目标从未存在与幂等重放必须使用不同错误。
 
 版本存 BIGINT，API 返回十进制字符串；时间存 TIMESTAMPTZ，API 返回 UTC RFC3339。SQL 参数化，业务字段英文 snake_case，SQL 说明与 COMMENT 中文。sqlc 目录只通过固定版本生成器更新。
 
-迁移使用 goose 编号文件；API 启动不自动迁移。已发布编号不得覆盖。`cmd/migrate` 仅暴露 up/status。Down 会删除本切片数据，不能恢复已删除数据；优先备份与前向修复。测试要求 `MOUSEHOLE_TEST_DATABASE_URL`，创建随机 schema，只清理自身 schema。
+迁移使用 goose 编号文件；API 启动不自动迁移。`00002` 为旧固定 actor/project 建立 disabled/revoked 历史记录，再增加外键，不能改写既有命令归属。已发布编号不得覆盖。`cmd/migrate` 仅暴露 up/status。Down 会删除本切片数据，不能恢复已删除数据；优先备份与前向修复。测试要求 `MOUSEHOLE_TEST_DATABASE_URL`，创建随机 schema，只清理自身 schema。
 
 ## 4. 校验与错误矩阵
 
@@ -38,7 +42,7 @@ func (s *Service) Get(ctx context.Context, actorID, projectID, commandID string)
 
 ## 6. 测试断言
 
-真实 PG 集成断言并发唯一、规范化参数回放、冲突不变、关联一致、提交后段失败全回滚、连接池重建恢复。`verify_restart.py` 补全进程重启后逐字段一致。生成检查在临时副本生成并比较文件集合与字节，缺 DSN 必须失败。
+真实 PG 集成断言旧命令迁移保留、bootstrap 幂等/冲突、摘要会话与登录尝试一次性消费、管理员全局撤销、用户禁用、成员撤销锁顺序、管理审计幂等和审计失败整体回滚，以及跨 actor 拒绝、并发唯一、规范化参数回放、冲突不变、关联一致、提交后段失败全回滚和连接池重建恢复。`verify_restart.py` 通过合成 OIDC 登录取得 Cookie/CSRF，并补全 API 进程重启后逐字段一致。生成检查在临时副本生成并比较文件集合与字节，缺 DSN 必须失败。
 
 ## 7. 错误与正确
 

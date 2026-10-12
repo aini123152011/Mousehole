@@ -11,7 +11,7 @@ import {
   Search,
   ShieldCheck,
 } from 'lucide-react';
-import type { DevelopmentSession } from '../../api/client';
+import type { components } from '../../api/generated/schema';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import {
@@ -28,12 +28,14 @@ import { CommandResult } from './command-result';
 
 /** 工作台依赖服务端校验过的当前开发项目。 */
 interface CommandWorkspaceProps {
-  session: DevelopmentSession;
+  actorId: string;
+  project: components['schemas']['ProjectAccess'];
 }
 
 /** 提供草稿创建与既有命令恢复；未知提交期间锁定参数并保留 ID。 */
-export function CommandWorkspace({ session }: CommandWorkspaceProps) {
-  const workspace = useCommandWorkspace(session.project_id);
+export function CommandWorkspace({ actorId, project }: CommandWorkspaceProps) {
+  const workspace = useCommandWorkspace(actorId, project.id);
+  const canCreate = project.capabilities.includes('task_draft:create');
   const [copyNotice, setCopyNotice] = useState('');
   const draft = useForm({ resolver: zodResolver(taskDraftSchema), defaultValues: { title: '' } });
   const { setFocus } = draft;
@@ -108,7 +110,7 @@ export function CommandWorkspace({ session }: CommandWorkspaceProps) {
                   className="title-input"
                   placeholder="例如：内部平台评估准备"
                   autoComplete="off"
-                  disabled={workspace.isFormLocked}
+                  disabled={workspace.isFormLocked || !canCreate}
                   aria-invalid={Boolean(draft.formState.errors.title)}
                   aria-describedby={draft.formState.errors.title ? 'title-error' : 'title-hint'}
                   {...draft.register('title')}
@@ -155,7 +157,7 @@ export function CommandWorkspace({ session }: CommandWorkspaceProps) {
                     <Info size={14} aria-hidden="true" />
                     仅保存到当前项目
                   </span>
-                  <Button type="submit" disabled={workspace.isFormLocked}>
+                  <Button type="submit" disabled={workspace.isFormLocked || !canCreate}>
                     {workspace.phase === 'sending' ? (
                       <>
                         <Loader2 className="animate-spin" size={16} aria-hidden="true" />
