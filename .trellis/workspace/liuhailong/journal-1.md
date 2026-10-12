@@ -39,3 +39,40 @@
 
 - 根目录不是 Git 仓库，未初始化或提交，任务保留待提交及归档；不能伪造提交哈希。
 - 后续按父任务完成 P0 企业身份、授权和领域闭环，再进入 P1 编排/隔离与 P2 高自主 Agent。
+
+
+## Session 2: Git 基线提交与 P0 子任务归档
+<!-- trellis-session: v=2 fp=055359e5c50b1b7c -->
+
+**Date**: 2026-10-12
+**Task**: Git 基线提交与 P0 子任务归档
+**Branch**: `main`
+
+### Summary
+
+根目录已初始化为 Git 仓库；以 GitHub 用户名和 noreply 邮箱完成两个基线提交，并归档 P0 命令闭环子任务。推送因无法连接 github.com:443 失败，尚未发布到远程。
+
+### Main Changes
+
+- 本地 main 分支与 origin 已配置；作者使用 aini123152011，不记录真实姓名。
+- P0 子任务直接落在 main，使用明确的无 PR 分支归档选项完成归档；父任务保持进行中。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3270443` | feat: 建立 Mousehole 平台工程基线与 P0 命令闭环 |
+| `610d367` | chore: 纳入 Trellis 工作流与中文开发规范 |
+
+### Testing
+
+- [OK] 工作树干净；python scripts/check.py --scope text 通过，72 个文件格式符合规范。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 网络恢复后执行 git push -u origin main，并核对 GitHub 状态。
+- 继续父任务的企业身份与授权、领域闭环和后续编排建设。
