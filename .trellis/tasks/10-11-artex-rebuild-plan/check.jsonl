@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-review.md", "reason": "ARTEX source review for architecture and security verification"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-domain-ui-context.md", "reason": "Verify domain parity, findings consistency, retest, report freezing and event cursor behavior"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-execution-audit.md", "reason": "Verify durable execution, unknown outcomes, model failover and evidence coverage"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-security-audit.md", "reason": "Verify default-deny admission, isolation, enterprise identity and immutable audit evidence"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/frontend-stack-and-ux.md", "reason": "Verify current-use evidence, stack boundaries, workbench usability and ARTEX comparison contracts"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md", "reason": "检查中文说明、统一格式、状态/事务/幂等/未知结果合同及真实验证门槛"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md", "reason": "检查注释与文档模板应用、机器语法例外、来源/生成和 PR 审查完整性"}

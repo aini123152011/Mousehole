@@ -1,0 +1,28 @@
+{
+  "id": "artex-rebuild-plan",
+  "name": "artex-rebuild-plan",
+  "title": "ARTEX 平台重建方案",
+  "description": "分析 ARTEX 并形成新一代平台的产品与技术方案",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "liuhailong",
+  "assignee": "liuhailong",
+  "createdAt": "2026-10-11",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "10-12-p0-command-foundation"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "2026-10-12 用户明确批准最新方案，首个 P0 工程骨架、中文规范工具链和草稿命令受理/查询切片已实施并通过本地独立验收：全范围检查退出 0，Vitest 28/28、真实 Chromium 4/4，真实数据库与全进程恢复通过。子任务 10-12-p0-command-foundation 因根目录非 Git 仓库仍待提交/归档；父任务继续承担后续 P0–P2 与总体验收。",
+  "meta": {}
+}

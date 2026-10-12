@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-review.md", "reason": "ARTEX source review and redesign constraints"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-domain-ui-context.md", "reason": "Curated domain contracts and links to the complete 21-sidebar-entry/10-tab ARTEX audit"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-execution-audit.md", "reason": "Agent, recovery, model governance and evidence contracts to preserve and improve"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/artex-security-audit.md", "reason": "Authorization, actual tool admission, isolation, identity and retention findings"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/research/frontend-stack-and-ux.md", "reason": "Source-backed frontend/backend selection, shadcn tradeoffs and measurable workbench improvements"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md", "reason": "统一中文代码、注释、命名/格式、跨层合同、测试和交付规范"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md", "reason": "Go/TSDoc/SQL/OpenAPI 中文模板、格式配置建议与开发交接要求"}
