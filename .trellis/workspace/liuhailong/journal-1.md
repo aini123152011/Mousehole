@@ -76,3 +76,26 @@
 
 - 网络恢复后执行 git push -u origin main，并核对 GitHub 状态。
 - 继续父任务的企业身份与授权、领域闭环和后续编排建设。
+
+
+## Session 3: 完成 P0 企业身份与项目访问基础
+<!-- trellis-session: v=2 fp=5c1b1c2b8e1b81cc -->
+
+**Date**: 2026-10-12
+**Task**: 完成 P0 企业身份与项目访问基础
+**Branch**: `feat/p0-identity-access`
+
+### Summary
+
+完成 OIDC PKCE、服务端会话、CSRF、项目成员权限、命令事务锁、管理员撤销 CLI、合成 issuer、React 登录工作台和真实 PostgreSQL/Chromium/重启验收；补齐前端 E2E 首帧认证竞态规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `63b08df` | docs: 校准重建规划并登记身份切片 |
+| `6df4011` | feat: 建立企业身份与项目访问基础 |
+
+### Status
+
+[OK] **Completed**
