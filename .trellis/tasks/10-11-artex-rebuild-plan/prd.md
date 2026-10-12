@@ -2,7 +2,7 @@
 
 ## 目标
 
-仔细梳理 ARTEX 的实际产品和代码，以其已验证的业务闭环规划一套面向单企业安全团队私有化部署的授权安全验证平台。保留资产知识、双图、Agent 认知组织、证据和发现闭环，重建运行协调、授权边界、企业身份和交付机制。方案阶段交付研究、需求、架构和实施路线；用户已于 2026-10-12 批准从 P0 开始，首个实施切片见 [工程骨架与命令闭环](../10-12-p0-command-foundation/prd.md)。总体平台仍在建设，实际交付以 [根 README](../../../README.md) 和 [验收记录](../../../docs/validation/p0-command-foundation.md) 为准。
+仔细梳理 ARTEX 的实际产品和代码，以其已验证的业务闭环规划一套面向单企业安全团队私有化部署的授权安全验证平台。保留资产知识、双图、Agent 认知组织、证据和发现闭环，重建运行协调、授权边界、企业身份和交付机制。方案阶段交付研究、需求、架构和实施路线；用户已于 2026-10-12 批准从 P0 开始，首个实施切片见 [工程骨架与命令闭环](../archive/2026-10/10-12-p0-command-foundation/prd.md)。总体平台仍在建设，实际交付以 [根 README](../../../README.md) 和 [验收记录](../../../docs/validation/p0-command-foundation.md) 为准。
 
 用户已选择高自主 Agent 执行，最高操作强度为主动枚举与非破坏性验证，并明确要求新平台比 ARTEX 更强大、更好用。平台的价值是缩短从已授权任务到可复核发现的周期，让每次真实执行可追溯、可中断、可恢复，并说明未覆盖和结果未知的部分。产品改进以自主任务完成、故障恢复、发现可复核和分析员操作效率衡量；组件数量或页面数量不能替代这些结果。
 
@@ -18,7 +18,7 @@ ARTEX 使用 Go、PostgreSQL 和静态导出的 Next.js/React Web，已经形成
 
 源码证据、完整功能盘点、各项保留/替换/后置决定见 [artex-review.md](research/artex-review.md) 及其中三个专项审查。本次仅静态检查，未修改 ARTEX 或运行其服务、构建、测试、扫描；不能把静态结论当作性能、隔离或模型效果的实测证明。
 
-ARTEX 已实际使用 shadcn/ui 与 Radix；采用 shadcn/ui 是延续成熟组件基础，改进来自统一工作台、数据与操作语义。[components.json](E:/Crazywhite/ARTEX/web/components.json:2) [Button](E:/Crazywhite/ARTEX/web/src/components/ui/button.tsx:3) 用户正在评估 shadcn/ui，尚未确认具体前端选型；本次推荐与官方资料见 [前端选型研究](research/frontend-stack-and-ux.md)。
+ARTEX 已实际使用 shadcn/ui 与 Radix；采用 shadcn/ui 是延续成熟组件基础，改进来自统一工作台、数据与操作语义。[components.json](E:/Crazywhite/ARTEX/web/components.json:2) [Button](E:/Crazywhite/ARTEX/web/src/components/ui/button.tsx:3) 用户已批准首个切片，并已采用 React/TypeScript/Vite 与 shadcn/ui；选型研究与官方资料见 [前端选型研究](research/frontend-stack-and-ux.md)。
 
 ## 首版范围
 

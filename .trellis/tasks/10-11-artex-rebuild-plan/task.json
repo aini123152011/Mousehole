@@ -12,17 +12,18 @@
   "assignee": "liuhailong",
   "createdAt": "2026-10-11",
   "completedAt": null,
-  "branch": null,
+  "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-12-p0-command-foundation"
+    "10-12-p0-command-foundation",
+    "10-12-p0-identity-access"
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-12 用户明确批准最新方案，首个 P0 工程骨架、中文规范工具链和草稿命令受理/查询切片已实施并通过本地独立验收：全范围检查退出 0，Vitest 28/28、真实 Chromium 4/4，真实数据库与全进程恢复通过。子任务 10-12-p0-command-foundation 因根目录非 Git 仓库仍待提交/归档；父任务继续承担后续 P0–P2 与总体验收。",
+  "notes": "2026-10-12 首个 P0 命令闭环已通过本地独立验收并归档；工程/规范提交 3270443、610d367，远程 main 已同步至 8d59642。子任务 10-12-p0-identity-access 已完成 OIDC、服务端会话、CSRF、预置成员与项目权限规划，等待最终审查后实施；父任务继续承担完整 P0-P2 和 ARTEX 对照验收。",
   "meta": {}
 }

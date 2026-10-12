@@ -1,0 +1,12 @@
+{"file": ".trellis/tasks/10-12-p0-identity-access/research/identity-foundation.md", "reason": "核对身份威胁边界、依赖缺口与验证矩阵"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md", "reason": "审查中文合同、秘密、OIDC/CSRF、权限和真实测试"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "核对跨层 actor/project/capability 数据流"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "核对幂等事务与成员撤销锁顺序"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "核对认证授权错误与对象不泄露"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "核对 token/cookie/claims/DSN 日志脱敏"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "执行后端静态、行为和集成检查"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "核对登录/无权限/过期状态和无障碍"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "核对 session/project Query 与迟到请求"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "核对缓存隔离、401/403 和未知结果"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "核对生成类型与不可信响应验证"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "执行前端 lint、类型、组件、构建和真实 E2E"}

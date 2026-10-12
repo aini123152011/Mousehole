@@ -2,7 +2,7 @@
 
 ## 范围与环境
 
-用户已批准的首个实施切片，见 [PRD](../../.trellis/tasks/10-12-p0-command-foundation/prd.md) 和 [跨层合同](../../.trellis/tasks/10-12-p0-command-foundation/design.md)。本次只向本地合成项目写入任务草稿；未连接 ARTEX 数据库或访问评估目标。ARTEX 源码保持只读。
+用户已批准的首个实施切片，见 [PRD](../../.trellis/tasks/archive/2026-10/10-12-p0-command-foundation/prd.md) 和 [跨层合同](../../.trellis/tasks/archive/2026-10/10-12-p0-command-foundation/design.md)。本次只向本地合成项目写入任务草稿；未连接 ARTEX 数据库或访问评估目标。ARTEX 源码保持只读。
 
 实跑环境为 Windows、Go 1.26.9、Node.js 24.19.0、pnpm 12.4.2、Python 3.14、Docker Compose 和 PostgreSQL 17。镜像及生成器版本见 [工具清单](../../scripts/toolchain.json)，启动与检查命令见 [根 README](../../README.md)。Go 置于工作区 `.tools/`，未全局安装工具或修改永久 PATH。
 
@@ -55,7 +55,10 @@ Vite 构建提示单个 JS 文件约 582.30 kB，gzip 177.32 kB，超过默认 5
 - Linux CI 已配置真实 PostgreSQL、race、生成漂移和 E2E，尚未在云端执行，不能视为已通过。
 - 没有生产 OIDC、Temporal、Runner、模型调用、SSE 或目标执行。本地固定身份不是生产登录方案。
 - 没有实际与 ARTEX 同场景的效率、容量或自主完成率对照测试；更强、更好用仍由父任务后续验收证明。
-- 根目录尚非 Git 仓库，未初始化、提交或假造提交记录；任务提交及归档尚未完成。
+
+## Git 交付补记（2026-10-12）
+
+根目录已初始化 Git，工程基线与规范分别提交为 `3270443`、`610d367`；子任务归档提交为 `73fec28`，日志提交为 `8d59642`。随后重试推送成功，已核对远程 `main` 与本地 `8d59642` 一致。作者使用 GitHub 用户名和 noreply 邮箱。此补记只更新交付状态，不追加产品测试或云端 CI 通过声明。
 
 ## 后续交付边界
 

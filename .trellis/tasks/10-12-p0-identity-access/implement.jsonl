@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/10-12-p0-identity-access/research/identity-foundation.md", "reason": "当前身份/OIDC/权限研究与依赖边界"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md", "reason": "已批准的中文代码、接口、安全与测试规范"}
+{"file": ".trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md", "reason": "身份模块、迁移、API、Hook 与文档模板"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "身份到数据库、HTTP、OpenAPI 与页面的跨层合同"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "既有命令事务、迁移和真实 PostgreSQL 约束"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "既有错误、未知结果和权限边界"}
+{"file": ".trellis/spec/backend/tooling-contract.md", "reason": "本地模式、精确来源与验证入口"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Query 权威状态和项目/会话缓存边界"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "OpenAPI 生成与运行时响应校验"}

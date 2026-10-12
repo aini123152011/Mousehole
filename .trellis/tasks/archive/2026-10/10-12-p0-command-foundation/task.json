@@ -15,12 +15,12 @@
   "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "610d367",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": "10-11-artex-rebuild-plan",
   "relatedFiles": [],
-  "notes": "2026-10-12 首个草稿命令切片功能与本地独立验收完成；全范围检查退出 0，Vitest 28/28、真实 Chromium 4/4 通过，数据库事务/并发与全进程恢复已验证。实际 spec 与验收记录已更新。根目录不是 Git 仓库，未初始化或提交，保留 in_progress 待提交/归档；Windows race 和云端 CI 未执行。",
+  "notes": "2026-10-12 本地独立验收完成：全范围检查退出 0，Vitest 28/28、真实 Chromium 4/4，真实数据库与全进程恢复通过。工程/规范提交 3270443、610d367，子任务已归档（73fec28）；已核对远程 main 同步至 8d59642。Windows race 和云端 CI 未在本地验收中确认。",
   "meta": {}
 }

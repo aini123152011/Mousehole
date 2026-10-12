@@ -25,7 +25,7 @@
 - [x] 落地本地工具、统一格式、开发/检查入口、锁定依赖、中文 README 和 PR 模板、Linux CI 配置。
 - [x] 真实数据库验证 24 并发幂等、冲突、COMMIT 回滚和连接池重建恢复；独立 API 全进程重启验证回执逐字段一致。
 - [x] 独立 trellis-check 修复 Origin 空片段、UTC/不可显示时间与生成文件集合缺口；最终 `python scripts/check.py --integration --e2e` 退出 0，Vitest 28/28、真实 Chromium 4/4 通过。
-- [x] 桌面/手机目视复核，保存截图；实际中文 spec 已回写。具体证据与保留提示见 [验收记录](../../../docs/validation/p0-command-foundation.md)。
-- [ ] Git 提交与任务归档：根目录不是 Git 仓库；没有初始化或伪造提交，任务保留 in_progress 以注明待提交。
+- [x] 桌面/手机目视复核，保存截图；实际中文 spec 已回写。具体证据与保留提示见 [验收记录](../../../../../docs/validation/p0-command-foundation.md)。
+- [x] Git 提交与任务归档：工程 `3270443`、规范 `610d367`、归档 `73fec28`、日志 `8d59642` 已生成，远程 main 已核对同步至 `8d59642`。此切片直接落在 main，归档使用无 PR 分支校验例外；没有虚构合并或云端检查结果。
 
 Windows race 和云端 CI 尚未执行，验收记录已分别标明；未宣称通过。此切片功能与独立验收已完成，后续继续父任务 P0 身份、授权和领域闭环，随后 P1 编排/隔离、P2 高自主 Agent。
