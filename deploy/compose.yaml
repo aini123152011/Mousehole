@@ -1,0 +1,22 @@
+name: mousehole-development
+
+services:
+  postgres:
+    # 固定镜像内容；仅用于本地合成数据，不连接已有数据库。
+    image: postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+    environment:
+      POSTGRES_USER: mousehole
+      POSTGRES_PASSWORD: mousehole-local-only
+      POSTGRES_DB: mousehole
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - mousehole-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mousehole -d mousehole']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  mousehole-postgres:

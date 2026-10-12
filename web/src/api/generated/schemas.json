@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "UUID": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "带连字符的标准小写 UUID。"
+    },
+    "DevelopmentSession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "actor_id",
+        "project_id",
+        "project_name"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "const": "development"
+        },
+        "actor_id": {
+          "type": "string",
+          "const": "00000000-0000-4000-8000-000000000001"
+        },
+        "project_id": {
+          "type": "string",
+          "const": "00000000-0000-4000-8000-000000000002"
+        },
+        "project_name": {
+          "type": "string",
+          "const": "本地演示项目"
+        }
+      }
+    },
+    "CreateTaskDraftCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "create_task_draft"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "title"
+          ],
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "去除首尾 Unicode 空白后为 1–120 个 Unicode 字符。"
+            }
+          }
+        }
+      }
+    },
+    "CommandReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_id",
+        "project_id",
+        "kind",
+        "state",
+        "task_id",
+        "task_title",
+        "task_state",
+        "version",
+        "accepted_at"
+      ],
+      "properties": {
+        "command_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "project_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "kind": {
+          "type": "string",
+          "const": "create_task_draft"
+        },
+        "state": {
+          "type": "string",
+          "const": "accepted",
+          "description": "已受理，不代表执行完成。"
+        },
+        "task_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "task_title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "task_state": {
+          "type": "string",
+          "const": "draft"
+        },
+        "version": {
+          "type": "string",
+          "const": "1",
+          "description": "十进制业务版本字符串，避免 JavaScript 整数精度损失。"
+        },
+        "accepted_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$",
+          "description": "原始受理时间，UTC RFC3339，统一使用 Z 时区后缀。"
+        }
+      }
+    },
+    "APIError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "request_id"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "invalid_request",
+            "project_forbidden",
+            "development_only",
+            "command_not_found",
+            "idempotency_conflict",
+            "request_too_large",
+            "unsupported_media_type",
+            "service_unavailable",
+            "internal_error",
+            "route_not_found",
+            "method_not_allowed"
+          ],
+          "description": "稳定机器错误码，禁止通过中文说明分支判断。"
+        },
+        "message": {
+          "type": "string",
+          "description": "可直接展示的中文说明，不含内部异常或秘密。"
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "服务端生成的请求关联标识。"
+        }
+      }
+    }
+  }
+}

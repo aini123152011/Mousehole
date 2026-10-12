@@ -1,0 +1,26 @@
+[
+  {
+    "component": "button",
+    "url": "https://ui.shadcn.com/r/styles/new-york-v4/button.json",
+    "retrieved_at": "2026-10-12",
+    "registry_sha256": "4b8d7d848742727973c1b088af8d15f0b628272a1316f2d2fa344e73ddff9e9c"
+  },
+  {
+    "component": "input",
+    "url": "https://ui.shadcn.com/r/styles/new-york-v4/input.json",
+    "retrieved_at": "2026-10-12",
+    "registry_sha256": "b1fffa12ba72ce30a291749012b47235eda110648b8106725ced22b5b31c8f1b"
+  },
+  {
+    "component": "card",
+    "url": "https://ui.shadcn.com/r/styles/new-york-v4/card.json",
+    "retrieved_at": "2026-10-12",
+    "registry_sha256": "c7ebaa49ba2a0613838558f3892c5007523c2dc26d6b36a244145d454a796106"
+  },
+  {
+    "component": "badge",
+    "url": "https://ui.shadcn.com/r/styles/new-york-v4/badge.json",
+    "retrieved_at": "2026-10-12",
+    "registry_sha256": "0f988b37cf1c56e7ecc83b1dcf24c9af4e73ce4341da5caf2c9d9b07a551319b"
+  }
+]

@@ -1,0 +1,16 @@
+# 开发工具、依赖和本地数据，不进入源码交付。
+.tools/
+.local/
+**/node_modules/
+web/dist/
+web/coverage/
+web/playwright-report/
+web/test-results/
+**/*.tsbuildinfo
+backend/bin/
+.env
+.env.*
+!.env.example
+**/__pycache__/
+.trellis/.runtime/
+.trellis/.developer

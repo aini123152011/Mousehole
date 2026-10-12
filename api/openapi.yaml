@@ -1,0 +1,298 @@
+openapi: 3.1.0
+info:
+  title: Mousehole 本地开发命令 API
+  version: 0.1.0
+  description: |
+    仅用于单机开发的命令受理样本。开发标记不是凭据，不提供生产身份或执行能力。
+    所有业务请求必须携带开发标记；服务仅监听 loopback，并校验 Host 与 Origin。
+servers:
+  - url: http://127.0.0.1:8080
+tags:
+  - name: development
+    description: 本地固定身份与项目
+  - name: commands
+    description: 草稿命令受理与恢复查询
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: 检查进程存活
+      description: 只检查 HTTP 进程存活，不表示数据库可用或迁移已完成。
+      responses:
+        '200':
+          description: 进程存活
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/session:
+    get:
+      operationId: getDevelopmentSession
+      tags: [development]
+      summary: 查询本地开发身份
+      description: 返回固定演示身份和唯一允许的项目，不创建登录会话。
+      parameters:
+        - $ref: '#/components/parameters/Development'
+      responses:
+        '200':
+          description: 本地开发身份
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevelopmentSession'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/projects/{project_id}/commands/{command_id}:
+    parameters:
+      - $ref: '#/components/parameters/Development'
+      - $ref: '#/components/parameters/ProjectID'
+      - $ref: '#/components/parameters/CommandID'
+    put:
+      operationId: acceptCommand
+      tags: [commands]
+      summary: 受理创建任务草稿命令
+      description: |
+        客户端发送前生成小写 UUID；同项目、ID、身份与规范化参数重复提交返回原回执。
+        标题去除首尾 Unicode 空白后为 1–120 个 Unicode 字符；不接受未知或重复 JSON 字段。
+        同 ID 不同参数返回冲突，不修改原记录。受理、草稿、审计和 outbox 同事务。
+        响应丢失或服务失败时保留原 ID 查询，不自动生成新 ID 重发。
+        已受理仅表示草稿已持久化，不表示任何目标行为已执行。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskDraftCommand'
+      responses:
+        '200':
+          $ref: '#/components/responses/Receipt'
+        '201':
+          description: 命令首次受理，返回持久化回执
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: 同一命令 ID 已绑定不同参数或身份
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 请求体超过 16 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 请求媒体类型不是 application/json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+    get:
+      operationId: getCommandReceipt
+      tags: [commands]
+      summary: 查询原命令受理结果
+      description: |
+        每次查询重新校验开发身份和项目权限，返回数据库中的原始回执。
+        暂未找到不证明并发中的提交未受理；客户端应保留 ID 并允许再次查询。
+      responses:
+        '200':
+          $ref: '#/components/responses/Receipt'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: 暂未查询到命令，错误码为 command_not_found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+components:
+  parameters:
+    Development:
+      name: X-Mousehole-Development
+      in: header
+      required: true
+      description: 显式声明本地开发协议，不具备凭据作用。
+      schema:
+        type: string
+        const: 'true'
+    ProjectID:
+      name: project_id
+      in: path
+      required: true
+      description: 固定本地项目 ID；其他合法 UUID 返回 project_forbidden。
+      schema:
+        $ref: '#/components/schemas/UUID'
+    CommandID:
+      name: command_id
+      in: path
+      required: true
+      description: 客户端发送前生成的稳定命令 ID，查询恢复时沿用。
+      schema:
+        $ref: '#/components/schemas/UUID'
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      description: 带连字符的标准小写 UUID。
+    DevelopmentSession:
+      type: object
+      additionalProperties: false
+      required: [mode, actor_id, project_id, project_name]
+      properties:
+        mode:
+          type: string
+          const: development
+        actor_id:
+          type: string
+          const: 00000000-0000-4000-8000-000000000001
+        project_id:
+          type: string
+          const: 00000000-0000-4000-8000-000000000002
+        project_name:
+          type: string
+          const: 本地演示项目
+    CreateTaskDraftCommand:
+      type: object
+      additionalProperties: false
+      required: [kind, payload]
+      properties:
+        kind:
+          type: string
+          const: create_task_draft
+        payload:
+          type: object
+          additionalProperties: false
+          required: [title]
+          properties:
+            title:
+              type: string
+              description: 去除首尾 Unicode 空白后为 1–120 个 Unicode 字符。
+    CommandReceipt:
+      type: object
+      additionalProperties: false
+      required:
+        - command_id
+        - project_id
+        - kind
+        - state
+        - task_id
+        - task_title
+        - task_state
+        - version
+        - accepted_at
+      properties:
+        command_id:
+          $ref: '#/components/schemas/UUID'
+        project_id:
+          $ref: '#/components/schemas/UUID'
+        kind:
+          type: string
+          const: create_task_draft
+        state:
+          type: string
+          const: accepted
+          description: 已受理，不代表执行完成。
+        task_id:
+          $ref: '#/components/schemas/UUID'
+        task_title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        task_state:
+          type: string
+          const: draft
+        version:
+          type: string
+          const: '1'
+          description: 十进制业务版本字符串，避免 JavaScript 整数精度损失。
+        accepted_at:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          description: 原始受理时间，UTC RFC3339，统一使用 Z 时区后缀。
+    APIError:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code:
+          type: string
+          enum:
+            - invalid_request
+            - project_forbidden
+            - development_only
+            - command_not_found
+            - idempotency_conflict
+            - request_too_large
+            - unsupported_media_type
+            - service_unavailable
+            - internal_error
+            - route_not_found
+            - method_not_allowed
+          description: 稳定机器错误码，禁止通过中文说明分支判断。
+        message:
+          type: string
+          description: 可直接展示的中文说明，不含内部异常或秘密。
+        request_id:
+          type: string
+          format: uuid
+          description: 服务端生成的请求关联标识。
+  responses:
+    Receipt:
+      description: 原始命令回执；相同命令回放不新增草稿、审计或 outbox。
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CommandReceipt'
+    InvalidRequest:
+      description: 参数无效，错误码为 invalid_request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
+    Forbidden:
+      description: 开发协议、来源或项目边界拒绝请求
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
+    InternalError:
+      description: 内部失败；提交请求应保留原 ID 查询确认
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
+    Unavailable:
+      description: 数据库暂不可用或提交结果未知；请按原命令 ID 查询
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'

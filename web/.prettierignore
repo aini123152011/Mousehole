@@ -1,0 +1,7 @@
+node_modules
+dist
+pnpm-lock.yaml
+src/api/generated
+playwright-report
+test-results
+src/components/ui/LICENSE.shadcn
