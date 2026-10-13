@@ -99,3 +99,37 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 4: 授权资产切片验收与 shadcn-admin 决策
+<!-- trellis-session: v=2 fp=8e037b62b6d2e787 -->
+
+**Date**: 2026-10-13
+**Task**: 授权资产切片验收与 shadcn-admin 决策
+**Branch**: `feat/p0-authorization-assets`
+
+### Summary
+
+完成规范化资产、不可变授权版本和静态预检查；完整后端真实PG、Web56测试、12场景真实浏览器、重启及最终文本通过，独立复核无阻塞。用户确定采用shadcn-admin，下一任务整合真实布局、导航、主题和表格，保留Go/OIDC及恢复合同。
+
+### Main Changes
+
+- 00003/00004前向完整性与共享权限锁、三种范围命令原子账本、中文字段错误和跨导航unknown恢复。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `90ee9e4` | feat: 建立授权版本、资产与静态预检查工作台 |
+
+### Testing
+
+- [OK] 后端官方完整门禁含PG、Web56项、E2E12/12、API重启、最终text161文件/diff及四张截图人工核验通过。Windows race、云CI、真实企业IdP未执行。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 推送授权切片分支；建立shadcn-admin整合PRD/design/implement并提交最终规划审阅。
