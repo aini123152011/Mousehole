@@ -4,12 +4,12 @@
 
 在企业身份、项目成员和幂等草稿命令基础上，让分析员管理项目资产、编写明确的授权范围，并查清候选目标被拒绝的原因或仍缺少的执行条件。管理员可激活、替代、撤销授权及实施紧急禁止。新资产不会自动扩大许可，历史规则和决策可独立复核。
 
-本任务属于 [ARTEX 重建方案](../10-11-artex-rebuild-plan/prd.md) 的第三个 P0 切片。用户于 2026-10-12 批准本文件、[技术设计](design.md) 与 [代码实施计划](implement.md)，实施及本地真实验收已完成，当前待提交归档；实际证据见根目录 docs/validation/p0-authorization-assets.md。
+本任务属于 [ARTEX 重建方案](../../../10-11-artex-rebuild-plan/prd.md) 的第三个 P0 切片。用户于 2026-10-12 批准本文件、[技术设计](design.md) 与 [代码实施计划](implement.md)，实施及本地真实验收已完成，当前待提交归档；实际证据见根目录 docs/validation/p0-authorization-assets.md。
 
 ## 背景与事实
 
 - 用户已确定单企业私有化、高自主 Agent，首版上限为主动枚举与非破坏性验证；手写注释、文档、界面和公开错误统一简体中文。
-- [草稿命令](../archive/2026-10/10-12-p0-command-foundation/prd.md) 与 [企业身份](../archive/2026-10/10-12-p0-identity-access/prd.md) 已完成并归档。本任务分支 `feat/p0-authorization-assets` 从身份交付后 `c953214` 开始，不把未合并功能分支等同于远程 main。
+- [草稿命令](../10-12-p0-command-foundation/prd.md) 与 [企业身份](../10-12-p0-identity-access/prd.md) 已完成并归档。本任务分支 `feat/p0-authorization-assets` 从身份交付后 `c953214` 开始，不把未合并功能分支等同于远程 main。
 - 既有 viewer/analyst、OIDC Cookie/CSRF、管理员 CLI 和生成/验收入口可复用。旧命令、审计、outbox 由 `backend/db/migrations/00001_command_foundation.sql:12` 及非空 task_id 约束绑定草稿，不适合直接承载授权对象。
 - 权限实现缺口：`backend/db/queries/identity.sql:127` 的活动成员查询只锁 pm；user/project 状态没有相同锁保护。新切片需修复该共享边界并保留旧草稿合同。
 - ARTEX 保留资产来源、范围和工具闸门的思路值得继承，证据见 [源码研究](research/artex-scope-and-reuse.md)。项目继续只读，不运行、构建、测试或扫描 ARTEX。

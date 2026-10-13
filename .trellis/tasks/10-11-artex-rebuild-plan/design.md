@@ -1,6 +1,6 @@
 # 新一代授权安全验证平台设计
 
-本文描述完整平台的目标架构。草稿命令与企业身份已完成本地验收，实际合同见 [草稿设计](../archive/2026-10/10-12-p0-command-foundation/design.md) 和 [身份设计](../archive/2026-10/10-12-p0-identity-access/design.md)。第三个 [授权与资产切片](../10-12-p0-authorization-assets/design.md) 已完成本地验收；Temporal、Runner、审批、证据及完整领域闭环仍属后续实施，不能由本图推定已完成。
+本文描述完整平台的目标架构。草稿命令与企业身份已完成本地验收，实际合同见 [草稿设计](../archive/2026-10/10-12-p0-command-foundation/design.md) 和 [身份设计](../archive/2026-10/10-12-p0-identity-access/design.md)。第三个 [授权与资产切片](../archive/2026-10/10-12-p0-authorization-assets/design.md) 已完成本地验收；Temporal、Runner、审批、证据及完整领域闭环仍属后续实施，不能由本图推定已完成。
 
 ## 架构选择
 

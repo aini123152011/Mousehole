@@ -1,4 +1,4 @@
-{"file":".trellis/tasks/10-12-p0-authorization-assets/research/artex-scope-and-reuse.md","reason":"独立核对 ARTEX 证据、PRIVATE 后缀/URL/CIDR 反例及 spec 与权限实现差异"}
+{"file":".trellis/tasks/archive/2026-10/10-12-p0-authorization-assets/research/artex-scope-and-reuse.md","reason":"独立核对 ARTEX 证据、PRIVATE 后缀/URL/CIDR 反例及 spec 与权限实现差异"}
 {"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md","reason":"人工核查中文注释完整性、接口/事务语义和统一格式"}
 {"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md","reason":"抽查包说明、导出符号、迁移、Hook 与测试的中文模板"}
 {"file":".trellis/spec/backend/quality-guidelines.md","reason":"真实 PG/格式/生成/兼容检查，禁止以 skip 或配置替代通过"}

@@ -1,6 +1,6 @@
 # P0 授权与资产代码实施计划
 
-当前实施及本地验收已完成，待提交归档；用户于 2026-10-12 批准最终规划后运行 `task.py start`。以下为本切片的实施与验收顺序，完成情况以实际检查记录为准。完整中文风格沿用 [coding-standards.md](../10-11-artex-rebuild-plan/coding-standards.md) 和 [coding-templates.md](../10-11-artex-rebuild-plan/coding-templates.md)，实施前同时加载实际 backend/frontend spec。
+当前实施及本地验收已完成，待提交归档；用户于 2026-10-12 批准最终规划后运行 `task.py start`。以下为本切片的实施与验收顺序，完成情况以实际检查记录为准。完整中文风格沿用 [coding-standards.md](../../../10-11-artex-rebuild-plan/coding-standards.md) 和 [coding-templates.md](../../../10-11-artex-rebuild-plan/coding-templates.md)，实施前同时加载实际 backend/frontend spec。
 
 ## 1. 顺序与代码所有权
 

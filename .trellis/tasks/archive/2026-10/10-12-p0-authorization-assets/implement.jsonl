@@ -1,4 +1,4 @@
-{"file":".trellis/tasks/10-12-p0-authorization-assets/research/artex-scope-and-reuse.md","reason":"ARTEX 取长补短的源码证据、规范化反例、权限实际锁范围和旧账本兼容"}
+{"file":".trellis/tasks/archive/2026-10/10-12-p0-authorization-assets/research/artex-scope-and-reuse.md","reason":"ARTEX 取长补短的源码证据、规范化反例、权限实际锁范围和旧账本兼容"}
 {"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md","reason":"已批准的中文注释、统一格式、事务权限和生成内容规则"}
 {"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md","reason":"Go 包与符号、SQL/migration、API、TS Hook/组件和测试中文模板"}
 {"file":".trellis/spec/backend/index.md","reason":"后端开发前必读入口与现有实际合同"}

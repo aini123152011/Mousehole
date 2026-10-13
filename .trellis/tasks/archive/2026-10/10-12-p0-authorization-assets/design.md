@@ -1,6 +1,6 @@
 # P0 授权版本、资产规范化与策略预检查设计
 
-本文为用户于 2026-10-12 批准的实施设计，交付状态以实际验收记录为准。继承 [总体设计](../10-11-artex-rebuild-plan/design.md)、[中文编码规范](../10-11-artex-rebuild-plan/coding-standards.md) 和既有 OIDC/草稿命令合同；源码依据见 [ARTEX 范围与复用研究](research/artex-scope-and-reuse.md)，调研时的备选项由本文收敛。
+本文为用户于 2026-10-12 批准的实施设计，交付状态以实际验收记录为准。继承 [总体设计](../../../10-11-artex-rebuild-plan/design.md)、[中文编码规范](../../../10-11-artex-rebuild-plan/coding-standards.md) 和既有 OIDC/草稿命令合同；源码依据见 [ARTEX 范围与复用研究](research/artex-scope-and-reuse.md)，调研时的备选项由本文收敛。
 
 ## 1. 切片边界与数据流
 

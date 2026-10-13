@@ -25,6 +25,6 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-13前三个P0切片均完成本地验收；授权切片已通过完整backend真实PG、Web56测试、12真实E2E与重启，待当前分支提交归档。用户确定采用satnaing/shadcn-admin真实开源底座，替换此前Next选择；后续独立规划整合布局/导航/主题/Table，保留Go/OIDC/现有路由与恢复合同。父任务继续承担完整P0-P2、Runner/出口及ARTEX对照，不合并main或宣称平台完成。",
+  "notes": "2026-10-13前三个P0切片均完成本地验收；授权切片已通过完整backend真实PG、Web56测试、12真实E2E与重启，功能提交90ee9e4已完成并归档，待推送当前分支。用户确定采用satnaing/shadcn-admin真实开源底座，替换此前Next选择；后续独立规划整合布局/导航/主题/Table，保留Go/OIDC/现有路由与恢复合同。父任务继续承担完整P0-P2、Runner/出口及ARTEX对照，不合并main或宣称平台完成。",
   "meta": {}
 }
