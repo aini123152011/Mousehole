@@ -57,7 +57,7 @@ func TestCapabilitiesDefaultDeny(t *testing.T) {
 	if got := CapabilitiesForRole(RoleViewer); len(got) != 1 || got[0] != CapabilityProjectRead {
 		t.Fatalf("viewer 能力错误：%v", got)
 	}
-	if got := CapabilitiesForRole(RoleAnalyst); len(got) != 2 {
+	if got := CapabilitiesForRole(RoleAnalyst); len(got) != 5 {
 		t.Fatalf("analyst 能力错误：%v", got)
 	}
 	if got := CapabilitiesForRole("administrator"); len(got) != 0 {

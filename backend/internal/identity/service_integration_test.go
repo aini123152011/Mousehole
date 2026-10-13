@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -108,7 +109,7 @@ func TestProvisionAndAdminRevocation(t *testing.T) {
 		t.Fatal("数据库只能保存会话 SHA-256 摘要")
 	}
 	principal, err := storage.authenticate(ctx, tokenA, 30*time.Minute)
-	if err != nil || principal.ActorID != request.UserID || len(principal.Projects) != 1 || len(principal.Projects[0].Capabilities) != 2 {
+	if err != nil || principal.ActorID != request.UserID || len(principal.Projects) != 1 || !slices.Equal(principal.Projects[0].Capabilities, []string{"project:read", "task_draft:create", "asset:import", "authorization:create", "policy:precheck"}) {
 		t.Fatalf("会话投影错误：%+v err=%v", principal, err)
 	}
 	commandID := uuid.NewString()

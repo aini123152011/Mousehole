@@ -12,7 +12,7 @@
 
 PUT 前生成 crypto.randomUUID，规范化标题并同步 ref 锁定 ID/参数，然后更新 React 展示状态；防止同一渲染前重复事件发送第二个 PUT。mutation/query 显式 retry:false。查询传播 AbortSignal 并设置 15 秒预算。查询代次 `generation` 使迟到响应不改变当前选择的 phase/notice；旧身份、项目或命令结果只能进入自己的 Query key。组件以 `actorId:projectId` 为 key，身份或项目切换会重置局部未知结果状态。
 
-本页已提交但未知时，不能换 ID 查询来绕过锁，不能新建草稿；只查询原 ID。手输恢复属于 lookup，只查询不产生写入。Hook 中文 TSDoc 解释所有权、同步锁与未知语义，不为返回异步状态写虚假的同步 @throws。
+同项目已提交但未知时，不能换 ID 查询来绕过锁，不能新建草稿；只查询原 ID。Hook 挂在项目路由祖先，页面导航不会销毁 ID/绑定标题；重返表单恢复原标题，原 ID 查询核对原标题。新范围 Hook 同样跨三个领域页面持有原参数。手输恢复属于 lookup，只查询不产生写入。Hook 中文 TSDoc 解释所有权、同步锁与未知语义，不为返回异步状态写虚假的同步 @throws。详见 [范围工作台合同](scope-workspace-contract.md)。
 
 ## 4. 校验与错误矩阵
 

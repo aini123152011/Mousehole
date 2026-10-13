@@ -6,7 +6,7 @@
 
 ## 2. 签名
 
-`NewHandler(cfg Config, commands Commands, identities Identities, logger *slog.Logger) (http.Handler, error)`。公开 JSON 错误固定 `{code, message, request_id}`；OIDC callback 失败返回不含协议秘密的中文 HTML 安全页。Go 用 `errors.Is/As` 分类，不匹配中文消息。
+`NewHandler(cfg Config, commands Commands, identities Identities, logger *slog.Logger, scopes ...Scopes) (http.Handler, error)`。范围服务通过可选依赖注入，生产入口提供服务。公开 JSON 错误基本字段为 `{code, message, request_id}`；范围 `400 invalid_request` 可附受控 `validation_errors[{field,message}]`，详见 [授权与资产合同](authorization-assets-contract.md)。OIDC callback 失败返回不含协议秘密的中文 HTML 安全页。Go 用 `errors.Is/As` 分类，不匹配中文消息。
 
 ## 3. 合同
 
@@ -52,4 +52,4 @@ if errors.Is(err, command.ErrInvalidRequest) {
 }
 ```
 
-代码示例说明分类方式；实际映射集中在 `domainError`，避免各 handler 各自维护状态语义。
+代码示例说明分类方式；旧命令映射集中在 `domainError`，范围映射集中在 `scopeError`。范围新增 `forbidden/not_found/command_conflict/policy_revision_conflict/unavailable`，不能套用旧命令码；前端须成对核验 HTTP 与 code。字段详情由 validation 包的受控类别产生，不能透传任意底层错误或用户 payload。

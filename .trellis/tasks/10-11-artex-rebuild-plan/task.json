@@ -20,10 +20,11 @@
   "subtasks": [],
   "children": [
     "10-12-p0-command-foundation",
-    "10-12-p0-identity-access"
+    "10-12-p0-identity-access",
+    "10-12-p0-authorization-assets"
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-12 首个 P0 命令闭环已通过本地独立验收并归档；工程/规范提交 3270443、610d367，远程 main 已同步至 8d59642。子任务 10-12-p0-identity-access 已完成 OIDC、服务端会话、CSRF、预置成员与项目权限规划，等待最终审查后实施；父任务继续承担完整 P0-P2 和 ARTEX 对照验收。",
+  "notes": "2026-10-13前三个P0切片均完成本地验收；授权切片已通过完整backend真实PG、Web56测试、12真实E2E与重启，待当前分支提交归档。用户确定采用satnaing/shadcn-admin真实开源底座，替换此前Next选择；后续独立规划整合布局/导航/主题/Table，保留Go/OIDC/现有路由与恢复合同。父任务继续承担完整P0-P2、Runner/出口及ARTEX对照，不合并main或宣称平台完成。",
   "meta": {}
 }

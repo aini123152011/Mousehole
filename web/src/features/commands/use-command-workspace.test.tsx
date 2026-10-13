@@ -7,6 +7,7 @@ import { CommandAPIError } from '../../api/client';
 import { createQueryClient } from '../../app/query-client';
 import { analystProject, deferred, enterpriseSession, receiptFor } from '../../test/fixtures';
 import { commandKeys, useCommandWorkspace } from './use-command-workspace';
+import { clearProtectedCache } from '../../app/protected-cache';
 
 const apiMock = vi.hoisted(() => ({ acceptCommand: vi.fn(), getCommandReceipt: vi.fn() }));
 vi.mock('../../api/client', async (importOriginal) => ({
@@ -204,5 +205,25 @@ describe('命令交互与服务器缓存', () => {
     expect(
       queryClient.getQueryData(commandKeys.detail(otherActorId, projectId, firstId)),
     ).toBeUndefined();
+  });
+
+  it('项目工作台卸载取消旧草稿 PUT，迟到回执不恢复已清缓存', async () => {
+    const pending = deferred<CommandReceipt>();
+    apiMock.acceptCommand.mockReturnValue(pending.promise);
+    const { result, unmount, queryClient } = setup();
+    act(() => {
+      void result.current.createDraft('卸载中的合成草稿');
+    });
+    const signal: unknown = apiMock.acceptCommand.mock.calls[0]?.[3];
+    unmount();
+    await clearProtectedCache(queryClient);
+    expect(signal instanceof AbortSignal && signal.aborted).toBe(true);
+    await act(async () => {
+      pending.resolve(receiptFor(firstId));
+    });
+    expect(
+      queryClient.getQueryData(commandKeys.detail(actorId, projectId, firstId)),
+    ).toBeUndefined();
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(0);
   });
 });

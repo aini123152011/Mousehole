@@ -1,6 +1,14 @@
 # 实施路线图
 
-本文件描述总体实现顺序。用户已于 2026-10-12 批准从 P0 工程骨架与草稿命令闭环开始，当前进度见 [子任务](../archive/2026-10/10-12-p0-command-foundation/implement.md) 和 [验收记录](../../../docs/validation/p0-command-foundation.md)。P0–P2 合在一起为高自主 V1；每一阶段在隔离环境使用模拟资产、合成证据和明确批准的内部目标验收。
+本文件描述总体实现顺序。用户已于 2026-10-12 批准从 P0 开始，草稿命令和企业身份两个切片已完成并归档；当前第三个 [授权与资产切片](../10-12-p0-authorization-assets/implement.md) 已完成本地验收，待提交归档。P0–P2 合在一起为高自主 V1；每一阶段在隔离环境使用模拟资产、合成证据和明确批准的内部目标验收。
+
+| P0 切片                                         | 当前事实与证据                                                                                                                                                              |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 工程骨架与草稿命令                              | 已完成；[验收记录](../../../docs/validation/p0-command-foundation.md)                                                                                                       |
+| 企业身份与项目访问                              | 已完成；[验收记录](../../../docs/validation/p0-identity-access.md)。user/project 实际持锁缺口已由授权切片修复并通过12种权限竞争验收                                         |
+| 授权版本、资产规范化与策略预检查                | 本地验收通过；[PRD](../10-12-p0-authorization-assets/prd.md)、[设计](../10-12-p0-authorization-assets/design.md)、[编写计划](../10-12-p0-authorization-assets/implement.md) |
+| shadcn-admin 前端底座整合                       | 用户已选定，真实源码研究完成；整合待独立规划和最终审阅，保留 Go/OIDC 与业务恢复合同                                                                                         |
+| 审批、双图、证据/发现/复测/报告、事件与生产交付 | 尚未实施；按后续独立切片收敛并验收                                                                                                                                          |
 
 ## 编写前准备：统一中文规范与工具链
 
@@ -17,7 +25,7 @@
 
 ## P0：基础设施与领域闭环
 
-1. 建立 Go 模块化控制面与 React/TypeScript/Vite + React Router 静态 Web；首个草稿切片已采用 Tailwind/shadcn、TanStack Query 与 React Hook Form/Zod，后续列表再引入 TanStack Table，持续完善 token、状态/错误、密度和组合组件规范。REST/OpenAPI 生成前端 client，定义领域错误及 Action/Evidence schema；关键命令发送前生成 ID/幂等键，服务端同事务保存受理/业务/outbox，结果查询重验权限，绑定参数防同键改写。新工程当前采用 Vite，不复制 ARTEX 页面；后续能力延续本方案的职责边界。
+1. 建立 Go 模块化控制面与 React/TypeScript/Vite + React Router 静态 Web；首个草稿切片已采用 Tailwind/shadcn、TanStack Query 与 React Hook Form/Zod，后续列表再引入 TanStack Table，持续完善 token、状态/错误、密度和组合组件规范。REST/OpenAPI 生成前端 client，定义领域错误及 Action/Evidence schema；关键命令发送前生成 ID/幂等键，服务端同事务保存受理/业务/outbox，结果查询重验权限，绑定参数防同键改写。新工程当前采用 Vite，不复制 ARTEX 页面；下一任务基于用户选定 shadcn-admin 的真实布局/导航/主题/Table源码整合，保留 React Router、Go/OIDC与命令恢复。依赖和许可证按固定提交/逐文件来源清单管理；后续能力延续本方案的职责边界。
 2. 建立 PostgreSQL、pgx/sqlc 与编号 migration；模块为 Identity、Project、Authorization、Asset、Task、Evidence、Finding、Audit/Eventing。DDL 使用独立 migration Job，运行账号无 DDL 权限。
 3. 接入 Go OIDC 授权码流程及 PKCE/state/nonce、HttpOnly/Secure/SameSite session cookie、CSRF、同源 SSE cookie。SAML/SCIM 后置；不使用 localStorage token、URL token 或不必要的 SSE ticket。
 4. 实现授权书版本、资产 canonicalization、默认拒绝 PDP、当前紧急 deny/撤销，以及绑定真实 actor、Action hash/目标/适配器/授权/策略/TTL 的审批记录。全局资产与授权分离，支持手动/API 导入和显式历史上下文引用。
@@ -79,4 +87,4 @@
 
 ## 规划验证与实施门槛
 
-方案阶段使用 `python ./.trellis/scripts/task.py validate 10-11-artex-rebuild-plan`，检查链接、要求/验收映射和跨文件一致性。用户的实施批准已获得，首个子任务已启动；无需再次索取同一范围的开始许可。ARTEX 源码继续只读，实际产品检查按根 README 和子任务验收执行，不用规划文件校验代替行为测试。
+方案阶段使用 `python ./.trellis/scripts/task.py validate 10-11-artex-rebuild-plan`，检查链接、要求/验收映射和跨文件一致性。已获批准的前两个切片无需重复索取开始许可；新增授权与资产切片完成最终规划后，依 Trellis 最终审查门槛取得本切片实施批准。ARTEX 源码继续只读，实际产品检查按根 README 和子任务验收执行，不用规划文件校验代替行为测试。

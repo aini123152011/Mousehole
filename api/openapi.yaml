@@ -2,9 +2,11 @@ openapi: 3.1.0
 info:
   title: Mousehole 企业身份与草稿命令 API
   version: 0.2.0
-  description: |
-    单企业私有化部署的 OIDC 登录、服务端会话、项目成员访问和任务草稿命令接口。
+  description: '单企业私有化部署的 OIDC 登录、服务端会话、项目成员访问和任务草稿命令接口。
+
     浏览器只持有 HttpOnly Cookie；OIDC token 不下发到浏览器。已受理只表示草稿持久化。
+
+    '
 servers:
   - url: http://127.0.0.1:8080
 tags:
@@ -16,7 +18,8 @@ paths:
   /healthz:
     get:
       operationId: getHealth
-      tags: [auth]
+      tags:
+        - auth
       summary: 检查进程存活
       responses:
         '200':
@@ -26,126 +29,875 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [status]
+                required:
+                  - status
                 properties:
-                  status: { type: string, const: ok }
+                  status:
+                    type: string
+                    const: ok
   /api/v1/auth/login:
     get:
       operationId: startLogin
-      tags: [auth]
+      tags:
+        - auth
       summary: 发起企业 OIDC 登录
       description: 浏览器导航到此地址；服务端保存一次性 state、nonce 和 PKCE，不返回 token。
       responses:
-        '302': { description: 重定向到 OIDC authorization endpoint }
-        '400': { $ref: '#/components/responses/InvalidRequest' }
-        '503': { $ref: '#/components/responses/Unavailable' }
+        '302':
+          description: 重定向到 OIDC authorization endpoint
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /api/v1/auth/callback:
     get:
       operationId: completeLogin
-      tags: [auth]
+      tags:
+        - auth
       summary: 完成企业 OIDC 回调
       description: 校验 state、登录绑定 Cookie、PKCE、nonce、issuer、签名、audience 和 azp。
       parameters:
-        - { name: code, in: query, required: false, schema: { type: string } }
-        - { name: state, in: query, required: false, schema: { type: string } }
-        - { name: error, in: query, required: false, schema: { type: string } }
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: error
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
-        '303': { description: 登录成功并重定向到 Web 应用 }
+        '303':
+          description: 登录成功并重定向到 Web 应用
         '400':
           description: 登录尝试无效或已消费；返回不含 code、token 或 claims 的中文安全页
-          content: { text/html: { schema: { type: string } } }
+          content:
+            text/html:
+              schema:
+                type: string
         '403':
           description: 外部身份未预置；返回中文安全页和 request_id
-          content: { text/html: { schema: { type: string } } }
+          content:
+            text/html:
+              schema:
+                type: string
         '503':
           description: 身份依赖暂不可用；返回不含底层错误的中文安全页
-          content: { text/html: { schema: { type: string } } }
+          content:
+            text/html:
+              schema:
+                type: string
   /api/v1/auth/logout:
     post:
       operationId: logout
-      tags: [auth]
+      tags:
+        - auth
       summary: 撤销当前服务端会话
-      security: [{ sessionCookie: [] }]
+      security:
+        - sessionCookie: []
       parameters:
-        - { $ref: '#/components/parameters/CSRF' }
+        - $ref: '#/components/parameters/CSRF'
       responses:
-        '204': { description: 会话已撤销并清除 Cookie }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '403': { $ref: '#/components/responses/CSRFInvalid' }
+        '204':
+          description: 会话已撤销并清除 Cookie
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/CSRFInvalid'
   /api/v1/session:
     get:
       operationId: getSession
-      tags: [auth]
+      tags:
+        - auth
       summary: 查询当前用户和项目能力
-      security: [{ sessionCookie: [] }]
+      security:
+        - sessionCookie: []
       responses:
         '200':
           description: 当前会话投影和内存 CSRF token
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Session' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '503': { $ref: '#/components/responses/Unavailable' }
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/Unavailable'
   /api/v1/projects/{project_id}/commands/{command_id}:
     parameters:
-      - { $ref: '#/components/parameters/ProjectID' }
-      - { $ref: '#/components/parameters/CommandID' }
+      - $ref: '#/components/parameters/ProjectID'
+      - $ref: '#/components/parameters/CommandID'
     put:
       operationId: acceptCommand
-      tags: [commands]
+      tags:
+        - commands
       summary: 受理创建任务草稿命令
-      security: [{ sessionCookie: [] }]
+      security:
+        - sessionCookie: []
       parameters:
-        - { $ref: '#/components/parameters/CSRF' }
+        - $ref: '#/components/parameters/CSRF'
       requestBody:
         required: true
         content:
-          application/json: { schema: { $ref: '#/components/schemas/CreateTaskDraftCommand' } }
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskDraftCommand'
       responses:
-        '200': { $ref: '#/components/responses/Receipt' }
+        '200':
+          $ref: '#/components/responses/Receipt'
         '201':
-          {
-            description: 首次受理,
-            content:
-              { application/json: { schema: { $ref: '#/components/schemas/CommandReceipt' } } },
-          }
-        '400': { $ref: '#/components/responses/InvalidRequest' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
+          description: 首次受理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandReceipt'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
         '403':
           description: 项目成员、角色或 CSRF 校验拒绝
-          content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } }
-        '404': { $ref: '#/components/responses/CommandNotFound' }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          $ref: '#/components/responses/CommandNotFound'
         '409':
-          {
-            description: 同 ID 参数冲突,
-            content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } },
-          }
+          description: 同 ID 参数冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '413':
-          {
-            description: 请求体超过 16 KiB,
-            content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } },
-          }
+          description: 请求体超过 16 KiB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '415':
-          {
-            description: 媒体类型错误,
-            content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } },
-          }
-        '503': { $ref: '#/components/responses/Unavailable' }
+          description: 媒体类型错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          $ref: '#/components/responses/Unavailable'
     get:
       operationId: getCommandReceipt
-      tags: [commands]
+      tags:
+        - commands
       summary: 查询当前用户原命令受理结果
-      security: [{ sessionCookie: [] }]
+      security:
+        - sessionCookie: []
       responses:
-        '200': { $ref: '#/components/responses/Receipt' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '200':
+          $ref: '#/components/responses/Receipt'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
         '403':
-          {
-            description: 项目无权访问,
-            content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } },
-          }
-        '404': { $ref: '#/components/responses/CommandNotFound' }
-        '503': { $ref: '#/components/responses/Unavailable' }
+          description: 项目无权访问
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          $ref: '#/components/responses/CommandNotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/v1/projects/{project_id}/assets:
+    get:
+      operationId: listAssets
+      summary: 读取项目资产及本项目来源
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - &id001
+          $ref: '#/components/parameters/ProjectID'
+        - &id004
+          name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - &id005
+          name: cursor
+          in: query
+          schema: &id007
+            type: string
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum:
+              - domain
+              - ip
+              - url
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        '200':
+          description: 读取项目资产及本项目来源
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetPage'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /api/v1/projects/{project_id}/assets/preview:
+    post:
+      operationId: previewAssets
+      summary: 预览资产规范化与整批错误
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+        - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200':
+          description: 预览资产规范化与整批错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetPreview'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetImportPayload'
+  /api/v1/projects/{project_id}/scope-commands/{command_id}:
+    put:
+      operationId: acceptScopeCommand
+      summary: 受理资产、候选授权或静态预检查
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+        - &id003
+          $ref: '#/components/parameters/CommandID'
+        - $ref: '#/components/parameters/CSRF'
+      responses:
+        '200': &id002
+          description: 受理资产、候选授权或静态预检查
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScopeCommandReceipt'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '201': *id002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScopeCommandRequest'
+    get:
+      operationId: getScopeCommand
+      summary: 按原 ID 查询原身份回执
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+        - *id003
+      responses:
+        '200':
+          description: 按原 ID 查询原身份回执
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScopeCommandReceipt'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /api/v1/projects/{project_id}/authorization-versions:
+    get:
+      operationId: listAuthorizationVersions
+      summary: 读取授权版本历史
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+        - *id004
+        - *id005
+      responses:
+        '200':
+          description: 读取授权版本历史
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationVersionPage'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /api/v1/projects/{project_id}/authorization-versions/{version_id}:
+    get:
+      operationId: getAuthorizationVersion
+      summary: 读取不可变授权版本
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+        - name: version_id
+          in: path
+          required: true
+          schema: &id006
+            $ref: '#/components/schemas/UUID'
+      responses:
+        '200':
+          description: 读取不可变授权版本
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationVersion'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /api/v1/projects/{project_id}/policy:
+    get:
+      operationId: getProjectPolicy
+      summary: 读取当前授权指针与禁止规则
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+      responses:
+        '200':
+          description: 读取当前授权指针与禁止规则
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectPolicy'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /api/v1/projects/{project_id}/prechecks:
+    get:
+      operationId: listPrechecks
+      summary: 读取历史静态决策
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+        - *id004
+        - *id005
+      responses:
+        '200':
+          description: 读取历史静态决策
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrecheckPage'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+  /api/v1/projects/{project_id}/prechecks/{decision_id}:
+    get:
+      operationId: getPrecheck
+      summary: 读取历史静态决策详情
+      description: 当前活动项目成员可读取；写请求要求 analyst、会话绑定 CSRF 和精确来源。预检查仅本地匹配，历史结果不作为执行许可。
+      security:
+        - sessionCookie: []
+      parameters:
+        - *id001
+        - name: decision_id
+          in: path
+          required: true
+          schema: *id006
+      responses:
+        '200':
+          description: 读取历史静态决策详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyDecision'
+        '400':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '401':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '403':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '404':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '409':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '413':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '503':
+          description: 中文错误；5xx 结果可能未知，保留原命令 ID 查询。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
 components:
   securitySchemes:
     sessionCookie:
@@ -159,122 +911,884 @@ components:
       in: path
       required: true
       description: 项目 UUID；最终权限由当前活动成员关系决定。
-      schema: { $ref: '#/components/schemas/UUID' }
+      schema:
+        $ref: '#/components/schemas/UUID'
     CommandID:
       name: command_id
       in: path
       required: true
       description: 客户端生成并在未知结果时保留的稳定命令 UUID。
-      schema: { $ref: '#/components/schemas/UUID' }
+      schema:
+        $ref: '#/components/schemas/UUID'
     CSRF:
       name: X-CSRF-Token
       in: header
       required: true
       description: 从当前 session 响应取得的会话绑定 token；不得持久化。
-      schema: { type: string, minLength: 32 }
+      schema:
+        type: string
+        minLength: 32
   schemas:
     UUID:
       type: string
       format: uuid
-      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
     ProjectAccess:
       type: object
       additionalProperties: false
-      required: [id, name, role, capabilities, version]
+      required:
+        - id
+        - name
+        - role
+        - capabilities
+        - version
       properties:
-        id: { $ref: '#/components/schemas/UUID' }
-        name: { type: string, minLength: 1, maxLength: 120 }
-        role: { type: string, enum: [viewer, analyst] }
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        role:
+          type: string
+          enum:
+            - viewer
+            - analyst
         capabilities:
           type: array
-          items: { type: string, enum: ['project:read', 'task_draft:create'] }
-        version: { type: string, pattern: '^[1-9][0-9]*$' }
+          items:
+            type: string
+            enum:
+              - project:read
+              - task_draft:create
+              - asset:import
+              - authorization:create
+              - policy:precheck
+        version:
+          type: string
+          pattern: ^[1-9][0-9]*$
     Session:
       type: object
       additionalProperties: false
-      required: [actor_id, display_name, email, projects, csrf_token, expires_at]
+      required:
+        - actor_id
+        - display_name
+        - email
+        - projects
+        - csrf_token
+        - expires_at
       properties:
-        actor_id: { $ref: '#/components/schemas/UUID' }
-        display_name: { type: string, minLength: 1, maxLength: 120 }
-        email: { type: [string, 'null'], format: email }
+        actor_id:
+          $ref: '#/components/schemas/UUID'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type:
+            - string
+            - 'null'
+          format: email
         projects:
           type: array
-          items: { $ref: '#/components/schemas/ProjectAccess' }
-        csrf_token: { type: string, minLength: 32 }
-        expires_at: { type: string, format: date-time, pattern: 'Z$' }
+          items:
+            $ref: '#/components/schemas/ProjectAccess'
+        csrf_token:
+          type: string
+          minLength: 32
+        expires_at:
+          type: string
+          format: date-time
+          pattern: Z$
     CreateTaskDraftCommand:
       type: object
       additionalProperties: false
-      required: [kind, payload]
+      required:
+        - kind
+        - payload
       properties:
-        kind: { type: string, const: create_task_draft }
+        kind:
+          type: string
+          const: create_task_draft
         payload:
           type: object
           additionalProperties: false
-          required: [title]
+          required:
+            - title
           properties:
-            title: { type: string, description: 去除首尾 Unicode 空白后为 1–120 个 Unicode 字符。 }
+            title:
+              type: string
+              description: 去除首尾 Unicode 空白后为 1–120 个 Unicode 字符。
     CommandReceipt:
       type: object
       additionalProperties: false
       required:
-        [command_id, project_id, kind, state, task_id, task_title, task_state, version, accepted_at]
+        - command_id
+        - project_id
+        - kind
+        - state
+        - task_id
+        - task_title
+        - task_state
+        - version
+        - accepted_at
       properties:
-        command_id: { $ref: '#/components/schemas/UUID' }
-        project_id: { $ref: '#/components/schemas/UUID' }
-        kind: { type: string, const: create_task_draft }
-        state: { type: string, const: accepted }
-        task_id: { $ref: '#/components/schemas/UUID' }
-        task_title: { type: string, minLength: 1, maxLength: 120 }
-        task_state: { type: string, const: draft }
-        version: { type: string, const: '1' }
-        accepted_at: { type: string, format: date-time, pattern: 'Z$' }
+        command_id:
+          $ref: '#/components/schemas/UUID'
+        project_id:
+          $ref: '#/components/schemas/UUID'
+        kind:
+          type: string
+          const: create_task_draft
+        state:
+          type: string
+          const: accepted
+        task_id:
+          $ref: '#/components/schemas/UUID'
+        task_title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        task_state:
+          type: string
+          const: draft
+        version:
+          type: string
+          const: '1'
+        accepted_at:
+          type: string
+          format: date-time
+          pattern: Z$
     APIError:
       type: object
       additionalProperties: false
-      required: [code, message, request_id]
+      required:
+        - code
+        - message
+        - request_id
       properties:
         code:
           type: string
           enum:
-            [
-              invalid_request,
-              unauthenticated,
-              session_expired,
-              identity_not_provisioned,
-              csrf_invalid,
-              project_forbidden,
-              origin_forbidden,
-              command_not_found,
-              idempotency_conflict,
-              request_too_large,
-              unsupported_media_type,
-              service_unavailable,
-              internal_error,
-              route_not_found,
-              method_not_allowed,
-            ]
-        message: { type: string }
-        request_id: { $ref: '#/components/schemas/UUID' }
+            - invalid_request
+            - unauthenticated
+            - session_expired
+            - identity_not_provisioned
+            - csrf_invalid
+            - project_forbidden
+            - origin_forbidden
+            - command_not_found
+            - idempotency_conflict
+            - request_too_large
+            - unsupported_media_type
+            - service_unavailable
+            - internal_error
+            - route_not_found
+            - method_not_allowed
+            - forbidden
+            - not_found
+            - command_conflict
+            - policy_revision_conflict
+            - unavailable
+        message:
+          type: string
+        request_id:
+          $ref: '#/components/schemas/UUID'
+        validation_errors:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: 仅范围 invalid_request 可提供；字段使用 payload.entries.0.value 等固定点路径，消息为受控中文规范化说明，不含原始请求或依赖错误。
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - field
+              - message
+            properties:
+              field:
+                type: string
+                minLength: 1
+                maxLength: 200
+              message:
+                type: string
+                minLength: 1
+                maxLength: 500
+    AssetInput:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - value
+      properties:
+        kind:
+          type: string
+          enum:
+            - domain
+            - ip
+            - url
+        value:
+          type: string
+          minLength: 1
+          maxLength: 2048
+    AssetImportPayload:
+      type: object
+      additionalProperties: false
+      required:
+        - entries
+        - source
+        - notes
+        - external_ref
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetInput'
+          minItems: 1
+          maxItems: 100
+        source:
+          type: string
+          enum:
+            - manual
+            - api_import
+        notes:
+          type: string
+          maxLength: 500
+        external_ref:
+          type: string
+          maxLength: 500
+    AssetSource:
+      type: object
+      additionalProperties: false
+      required:
+        - command_id
+        - source
+        - notes
+        - external_ref
+        - created_at
+      properties:
+        command_id: *id006
+        source:
+          type: string
+          enum:
+            - manual
+            - api_import
+        notes: *id007
+        external_ref: *id007
+        created_at: &id008
+          type: string
+          format: date-time
+          pattern: Z$
+    Asset:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - kind
+        - canonical_value
+        - algorithm_version
+        - created_at
+        - sources
+      properties:
+        id: *id006
+        project_id: *id006
+        kind:
+          type: string
+          enum:
+            - domain
+            - ip
+            - url
+        canonical_value: *id007
+        algorithm_version:
+          type: string
+          const: target-v1
+        created_at: *id008
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetSource'
+    AssetPreviewRow:
+      type: object
+      additionalProperties: false
+      required:
+        - row
+        - kind
+        - canonical_value
+        - error
+      properties:
+        row:
+          type: integer
+          minimum: 1
+        kind: *id007
+        canonical_value: *id007
+        error: *id007
+    AssetPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - rows
+        - valid
+        - input_count
+        - unique_count
+        - duplicate_count
+        - existing_count
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetPreviewRow'
+        valid:
+          type: boolean
+        input_count: &id009
+          type: string
+          pattern: ^[0-9]+$
+        unique_count: *id009
+        duplicate_count: *id009
+        existing_count: *id009
+    ScopeEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - value
+        - include_subdomains
+        - operations
+        - ports
+        - resolved_ip_cidrs
+      properties:
+        kind:
+          type: string
+          enum:
+            - domain
+            - ip
+            - cidr
+            - url_exact
+        value: *id007
+        include_subdomains:
+          type: boolean
+        operations:
+          type: array
+          items: &id011
+            type: string
+            enum:
+              - dns_lookup
+              - tcp_connect
+              - http_metadata
+          minItems: 1
+          maxItems: 3
+        ports:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 65535
+          maxItems: 32
+        resolved_ip_cidrs:
+          type: array
+          items: *id007
+          maxItems: 32
+    AuthorizationBudget:
+      type: object
+      additionalProperties: false
+      required:
+        - max_requests
+        - max_concurrency
+        - max_requests_per_second
+      properties:
+        max_requests: &id010
+          type: string
+          pattern: ^[1-9][0-9]*$
+        max_concurrency: *id010
+        max_requests_per_second: *id010
+    AuthorizationContent:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - basis_ref
+        - contact
+        - valid_from
+        - expires_at
+        - algorithm_version
+        - policy_version
+        - catalog_version
+        - max_operation_level
+        - budget
+        - redirect_policy
+        - credential_policy
+        - entries
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        basis_ref:
+          type: string
+          minLength: 1
+          maxLength: 500
+        contact:
+          type: string
+          minLength: 1
+          maxLength: 200
+        valid_from: *id008
+        expires_at: *id008
+        algorithm_version:
+          type: string
+          const: target-v1
+        policy_version:
+          type: string
+          const: policy-v1
+        catalog_version:
+          type: string
+          const: precheck-v1
+        max_operation_level:
+          type: string
+          const: non_destructive
+        budget:
+          $ref: '#/components/schemas/AuthorizationBudget'
+        redirect_policy:
+          type: string
+          const: deny
+        credential_policy:
+          type: string
+          const: none
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopeEntry'
+          minItems: 1
+          maxItems: 100
+    AuthorizationVersion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - sequence
+        - content_hash
+        - content
+        - entry_ids
+        - state
+        - display_state
+        - created_at
+      properties:
+        id: *id006
+        project_id: *id006
+        sequence: *id010
+        content_hash:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        content:
+          $ref: '#/components/schemas/AuthorizationContent'
+        entry_ids:
+          type: array
+          items: *id006
+        state:
+          type: string
+          enum:
+            - candidate
+            - active
+            - superseded
+            - revoked
+        display_state:
+          type: string
+          enum:
+            - candidate
+            - active
+            - superseded
+            - revoked
+            - expired
+            - not_yet_valid
+        created_at: *id008
+    PrecheckParameters:
+      type: object
+      additionalProperties: false
+      required: []
+      properties:
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+    PrecheckPayload:
+      type: object
+      additionalProperties: false
+      required:
+        - authorization_version_id
+        - operation
+        - target
+        - parameters
+      properties:
+        authorization_version_id: *id006
+        operation: *id011
+        target: *id007
+        parameters:
+          $ref: '#/components/schemas/PrecheckParameters'
+    RuntimeCheck:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - status
+        - message
+      properties:
+        code: *id007
+        status:
+          type: string
+          enum:
+            - required
+            - not_applicable
+        message: *id007
+    PolicyDecision:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - command_id
+        - authorization_version_id
+        - operation
+        - canonical_target
+        - parameters
+        - outcome
+        - reason_codes
+        - message
+        - matched_entry_id
+        - checked_at
+        - content_hash
+        - global_revision
+        - project_revision
+        - algorithm_version
+        - policy_version
+        - catalog_version
+        - runtime_checks
+      properties:
+        id: *id006
+        project_id: *id006
+        command_id: *id006
+        authorization_version_id: *id006
+        operation: *id011
+        canonical_target: *id007
+        parameters:
+          $ref: '#/components/schemas/PrecheckParameters'
+        outcome:
+          type: string
+          enum:
+            - deny
+            - requires_runtime_checks
+        reason_codes:
+          type: array
+          items: *id007
+        message: *id007
+        matched_entry_id: &id012
+          anyOf:
+            - *id006
+            - type: 'null'
+        checked_at: *id008
+        content_hash: *id007
+        global_revision: *id010
+        project_revision: *id010
+        algorithm_version:
+          type: string
+          const: target-v1
+        policy_version:
+          type: string
+          const: policy-v1
+        catalog_version:
+          type: string
+          const: precheck-v1
+        runtime_checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeCheck'
+    ScopeDeny:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - project_id
+        - kind
+        - value
+        - include_subdomains
+        - reason
+        - active
+        - created_at
+      properties:
+        id: *id006
+        project_id: *id012
+        kind:
+          type: string
+          enum:
+            - domain
+            - ip
+            - cidr
+            - url_exact
+        value: *id007
+        include_subdomains:
+          type: boolean
+        reason: *id007
+        active:
+          type: boolean
+        created_at: *id008
+    ProjectPolicy:
+      type: object
+      additionalProperties: false
+      required:
+        - project_id
+        - global_revision
+        - project_revision
+        - active_version_id
+        - denies
+      properties:
+        project_id: *id006
+        global_revision: *id010
+        project_revision: *id010
+        active_version_id: *id012
+        denies:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopeDeny'
+    ImportAssetsCommand:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - payload
+      properties:
+        kind:
+          type: string
+          const: import_assets
+        payload:
+          $ref: '#/components/schemas/AssetImportPayload'
+    CreateAuthorizationVersionCommand:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - payload
+      properties:
+        kind:
+          type: string
+          const: create_authorization_version
+        payload:
+          $ref: '#/components/schemas/AuthorizationContent'
+    PrecheckTargetCommand:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - payload
+      properties:
+        kind:
+          type: string
+          const: precheck_target
+        payload:
+          $ref: '#/components/schemas/PrecheckPayload'
+    ScopeCommandRequest:
+      oneOf:
+        - $ref: '#/components/schemas/ImportAssetsCommand'
+        - $ref: '#/components/schemas/CreateAuthorizationVersionCommand'
+        - $ref: '#/components/schemas/PrecheckTargetCommand'
+      discriminator:
+        propertyName: kind
+        mapping:
+          import_assets: '#/components/schemas/ImportAssetsCommand'
+          create_authorization_version: '#/components/schemas/CreateAuthorizationVersionCommand'
+          precheck_target: '#/components/schemas/PrecheckTargetCommand'
+    AssetImportResult:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - input_count
+        - unique_count
+        - duplicate_count
+        - existing_count
+        - assets
+      properties:
+        type:
+          type: string
+          const: assets_imported
+        input_count: *id009
+        unique_count: *id009
+        duplicate_count: *id009
+        existing_count: *id009
+        assets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'
+    AuthorizationVersionResult:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - version
+      properties:
+        type:
+          type: string
+          const: authorization_version
+        version:
+          $ref: '#/components/schemas/AuthorizationVersion'
+    PrecheckResult:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - decision
+      properties:
+        type:
+          type: string
+          const: precheck
+        decision:
+          $ref: '#/components/schemas/PolicyDecision'
+    PolicyChangeResult:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - object_id
+        - global_revision
+        - project_revision
+      properties:
+        type:
+          type: string
+          const: policy_changed
+        object_id: *id006
+        global_revision: *id010
+        project_revision: *id009
+    ScopeCommandReceipt:
+      type: object
+      additionalProperties: false
+      required:
+        - command_id
+        - project_id
+        - kind
+        - state
+        - accepted_at
+        - result
+      properties:
+        command_id: *id006
+        project_id: *id012
+        kind:
+          type: string
+          enum:
+            - import_assets
+            - create_authorization_version
+            - precheck_target
+            - activate_authorization_version
+            - revoke_authorization_version
+            - add_scope_deny
+            - revoke_scope_deny
+        state:
+          type: string
+          const: accepted
+        accepted_at: *id008
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/AssetImportResult'
+            - $ref: '#/components/schemas/AuthorizationVersionResult'
+            - $ref: '#/components/schemas/PrecheckResult'
+            - $ref: '#/components/schemas/PolicyChangeResult'
+    AssetPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - has_more
+        - next_cursor
+        - page_count
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'
+        has_more:
+          type: boolean
+        next_cursor:
+          type:
+            - string
+            - 'null'
+        page_count: *id009
+    AuthorizationVersionPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - has_more
+        - next_cursor
+        - page_count
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorizationVersion'
+        has_more:
+          type: boolean
+        next_cursor:
+          type:
+            - string
+            - 'null'
+        page_count: *id009
+    PrecheckPage:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+        - has_more
+        - next_cursor
+        - page_count
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicyDecision'
+        has_more:
+          type: boolean
+        next_cursor:
+          type:
+            - string
+            - 'null'
+        page_count: *id009
   responses:
     Receipt:
       description: 原命令持久化回执
-      content: { application/json: { schema: { $ref: '#/components/schemas/CommandReceipt' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CommandReceipt'
     InvalidRequest:
       description: 请求无效
-      content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
     Unauthenticated:
       description: 未登录或会话已失效
-      content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
     IdentityNotProvisioned:
       description: 外部身份未预置
-      content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
     CSRFInvalid:
       description: CSRF 或来源校验失败
-      content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
     CommandNotFound:
       description: 当前 actor 未查询到原命令
-      content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'
     Unavailable:
       description: 依赖失败或结果待确认
-      content: { application/json: { schema: { $ref: '#/components/schemas/APIError' } } }
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/APIError'

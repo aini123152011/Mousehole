@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"mousehole/backend/internal/access"
 	"mousehole/backend/internal/store/sqlc"
 )
 
@@ -79,6 +80,10 @@ func (s *store) provision(ctx context.Context, request ProvisionRequest) error {
 	}
 	if project.Name != strings.TrimSpace(request.ProjectName) || project.Status != "active" {
 		return ErrConflict
+	}
+	// 新切片需要稳定策略行与命令命名空间；项目预置同事务补齐，不由请求猜测缺省许可。
+	if err = q.EnsureProjectScopeState(ctx, projectID); err != nil {
+		return unavailable(err)
 	}
 	if rows, insertErr := q.InsertProjectMembership(ctx, sqlc.InsertProjectMembershipParams{ProjectID: projectID, UserID: userID, Role: request.Role}); insertErr != nil {
 		return unavailable(insertErr)
@@ -308,6 +313,11 @@ func (s *store) revokeMembership(ctx context.Context, userID, projectID string) 
 	defer rollback(tx)
 	q := sqlc.New(tx)
 	params := sqlc.LockProjectMembershipForAdminParams{ProjectID: databaseID(projectID), UserID: databaseID(userID)}
+	if _, _, err = access.LockParents(ctx, q, userID, projectID); errors.Is(err, pgx.ErrNoRows) {
+		return AdminMutationResult{}, ErrAdminTargetNotFound
+	} else if err != nil {
+		return AdminMutationResult{}, unavailable(err)
+	}
 	membership, err := q.LockProjectMembershipForAdmin(ctx, params)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return AdminMutationResult{}, ErrAdminTargetNotFound

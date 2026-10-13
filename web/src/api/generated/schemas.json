@@ -38,7 +38,10 @@
             "type": "string",
             "enum": [
               "project:read",
-              "task_draft:create"
+              "task_draft:create",
+              "asset:import",
+              "authorization:create",
+              "policy:precheck"
             ]
           }
         },
@@ -197,7 +200,12 @@
             "service_unavailable",
             "internal_error",
             "route_not_found",
-            "method_not_allowed"
+            "method_not_allowed",
+            "forbidden",
+            "not_found",
+            "command_conflict",
+            "policy_revision_conflict",
+            "unavailable"
           ]
         },
         "message": {
@@ -205,6 +213,1065 @@
         },
         "request_id": {
           "$ref": "#/$defs/UUID"
+        },
+        "validation_errors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "description": "仅范围 invalid_request 可提供；字段使用 payload.entries.0.value 等固定点路径，消息为受控中文规范化说明，不含原始请求或依赖错误。",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "field",
+              "message"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            }
+          }
+        }
+      }
+    },
+    "AssetInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "domain",
+            "ip",
+            "url"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      }
+    },
+    "AssetImportPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entries",
+        "source",
+        "notes",
+        "external_ref"
+      ],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AssetInput"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "api_import"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "external_ref": {
+          "type": "string",
+          "maxLength": 500
+        }
+      }
+    },
+    "AssetSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_id",
+        "source",
+        "notes",
+        "external_ref",
+        "created_at"
+      ],
+      "properties": {
+        "command_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "api_import"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "external_ref": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      }
+    },
+    "Asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "project_id",
+        "kind",
+        "canonical_value",
+        "algorithm_version",
+        "created_at",
+        "sources"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "project_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "domain",
+            "ip",
+            "url"
+          ]
+        },
+        "canonical_value": {
+          "type": "string"
+        },
+        "algorithm_version": {
+          "type": "string",
+          "const": "target-v1"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AssetSource"
+          }
+        }
+      }
+    },
+    "AssetPreviewRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row",
+        "kind",
+        "canonical_value",
+        "error"
+      ],
+      "properties": {
+        "row": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string"
+        },
+        "canonical_value": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "AssetPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rows",
+        "valid",
+        "input_count",
+        "unique_count",
+        "duplicate_count",
+        "existing_count"
+      ],
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AssetPreviewRow"
+          }
+        },
+        "valid": {
+          "type": "boolean"
+        },
+        "input_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "unique_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "duplicate_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "existing_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      }
+    },
+    "ScopeEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "value",
+        "include_subdomains",
+        "operations",
+        "ports",
+        "resolved_ip_cidrs"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "domain",
+            "ip",
+            "cidr",
+            "url_exact"
+          ]
+        },
+        "value": {
+          "type": "string"
+        },
+        "include_subdomains": {
+          "type": "boolean"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "dns_lookup",
+              "tcp_connect",
+              "http_metadata"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "maxItems": 32
+        },
+        "resolved_ip_cidrs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        }
+      }
+    },
+    "AuthorizationBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_requests",
+        "max_concurrency",
+        "max_requests_per_second"
+      ],
+      "properties": {
+        "max_requests": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "max_concurrency": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "max_requests_per_second": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      }
+    },
+    "AuthorizationContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "basis_ref",
+        "contact",
+        "valid_from",
+        "expires_at",
+        "algorithm_version",
+        "policy_version",
+        "catalog_version",
+        "max_operation_level",
+        "budget",
+        "redirect_policy",
+        "credential_policy",
+        "entries"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "basis_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "contact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "algorithm_version": {
+          "type": "string",
+          "const": "target-v1"
+        },
+        "policy_version": {
+          "type": "string",
+          "const": "policy-v1"
+        },
+        "catalog_version": {
+          "type": "string",
+          "const": "precheck-v1"
+        },
+        "max_operation_level": {
+          "type": "string",
+          "const": "non_destructive"
+        },
+        "budget": {
+          "$ref": "#/$defs/AuthorizationBudget"
+        },
+        "redirect_policy": {
+          "type": "string",
+          "const": "deny"
+        },
+        "credential_policy": {
+          "type": "string",
+          "const": "none"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ScopeEntry"
+          },
+          "minItems": 1,
+          "maxItems": 100
+        }
+      }
+    },
+    "AuthorizationVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "project_id",
+        "sequence",
+        "content_hash",
+        "content",
+        "entry_ids",
+        "state",
+        "display_state",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "project_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "sequence": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "content": {
+          "$ref": "#/$defs/AuthorizationContent"
+        },
+        "entry_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UUID"
+          }
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "active",
+            "superseded",
+            "revoked"
+          ]
+        },
+        "display_state": {
+          "type": "string",
+          "enum": [
+            "candidate",
+            "active",
+            "superseded",
+            "revoked",
+            "expired",
+            "not_yet_valid"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      }
+    },
+    "PrecheckParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    },
+    "PrecheckPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorization_version_id",
+        "operation",
+        "target",
+        "parameters"
+      ],
+      "properties": {
+        "authorization_version_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "dns_lookup",
+            "tcp_connect",
+            "http_metadata"
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "parameters": {
+          "$ref": "#/$defs/PrecheckParameters"
+        }
+      }
+    },
+    "RuntimeCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "status",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "required",
+            "not_applicable"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "PolicyDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "project_id",
+        "command_id",
+        "authorization_version_id",
+        "operation",
+        "canonical_target",
+        "parameters",
+        "outcome",
+        "reason_codes",
+        "message",
+        "matched_entry_id",
+        "checked_at",
+        "content_hash",
+        "global_revision",
+        "project_revision",
+        "algorithm_version",
+        "policy_version",
+        "catalog_version",
+        "runtime_checks"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "project_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "command_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "authorization_version_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "dns_lookup",
+            "tcp_connect",
+            "http_metadata"
+          ]
+        },
+        "canonical_target": {
+          "type": "string"
+        },
+        "parameters": {
+          "$ref": "#/$defs/PrecheckParameters"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "deny",
+            "requires_runtime_checks"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "message": {
+          "type": "string"
+        },
+        "matched_entry_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UUID"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "content_hash": {
+          "type": "string"
+        },
+        "global_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "project_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "algorithm_version": {
+          "type": "string",
+          "const": "target-v1"
+        },
+        "policy_version": {
+          "type": "string",
+          "const": "policy-v1"
+        },
+        "catalog_version": {
+          "type": "string",
+          "const": "precheck-v1"
+        },
+        "runtime_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RuntimeCheck"
+          }
+        }
+      }
+    },
+    "ScopeDeny": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "project_id",
+        "kind",
+        "value",
+        "include_subdomains",
+        "reason",
+        "active",
+        "created_at"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "project_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UUID"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "domain",
+            "ip",
+            "cidr",
+            "url_exact"
+          ]
+        },
+        "value": {
+          "type": "string"
+        },
+        "include_subdomains": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        }
+      }
+    },
+    "ProjectPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_id",
+        "global_revision",
+        "project_revision",
+        "active_version_id",
+        "denies"
+      ],
+      "properties": {
+        "project_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "global_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "project_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "active_version_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UUID"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "denies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ScopeDeny"
+          }
+        }
+      }
+    },
+    "ImportAssetsCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "import_assets"
+        },
+        "payload": {
+          "$ref": "#/$defs/AssetImportPayload"
+        }
+      }
+    },
+    "CreateAuthorizationVersionCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "create_authorization_version"
+        },
+        "payload": {
+          "$ref": "#/$defs/AuthorizationContent"
+        }
+      }
+    },
+    "PrecheckTargetCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "payload"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "precheck_target"
+        },
+        "payload": {
+          "$ref": "#/$defs/PrecheckPayload"
+        }
+      }
+    },
+    "ScopeCommandRequest": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ImportAssetsCommand"
+        },
+        {
+          "$ref": "#/$defs/CreateAuthorizationVersionCommand"
+        },
+        {
+          "$ref": "#/$defs/PrecheckTargetCommand"
+        }
+      ],
+      "discriminator": {
+        "propertyName": "kind",
+        "mapping": {
+          "import_assets": "#/$defs/ImportAssetsCommand",
+          "create_authorization_version": "#/$defs/CreateAuthorizationVersionCommand",
+          "precheck_target": "#/$defs/PrecheckTargetCommand"
+        }
+      }
+    },
+    "AssetImportResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "input_count",
+        "unique_count",
+        "duplicate_count",
+        "existing_count",
+        "assets"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "assets_imported"
+        },
+        "input_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "unique_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "duplicate_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "existing_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Asset"
+          }
+        }
+      }
+    },
+    "AuthorizationVersionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "authorization_version"
+        },
+        "version": {
+          "$ref": "#/$defs/AuthorizationVersion"
+        }
+      }
+    },
+    "PrecheckResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "decision"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "precheck"
+        },
+        "decision": {
+          "$ref": "#/$defs/PolicyDecision"
+        }
+      }
+    },
+    "PolicyChangeResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "object_id",
+        "global_revision",
+        "project_revision"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "policy_changed"
+        },
+        "object_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "global_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "project_revision": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      }
+    },
+    "ScopeCommandReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_id",
+        "project_id",
+        "kind",
+        "state",
+        "accepted_at",
+        "result"
+      ],
+      "properties": {
+        "command_id": {
+          "$ref": "#/$defs/UUID"
+        },
+        "project_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UUID"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "import_assets",
+            "create_authorization_version",
+            "precheck_target",
+            "activate_authorization_version",
+            "revoke_authorization_version",
+            "add_scope_deny",
+            "revoke_scope_deny"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "const": "accepted"
+        },
+        "accepted_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "result": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/AssetImportResult"
+            },
+            {
+              "$ref": "#/$defs/AuthorizationVersionResult"
+            },
+            {
+              "$ref": "#/$defs/PrecheckResult"
+            },
+            {
+              "$ref": "#/$defs/PolicyChangeResult"
+            }
+          ]
+        }
+      }
+    },
+    "AssetPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "has_more",
+        "next_cursor",
+        "page_count"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Asset"
+          }
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "page_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      }
+    },
+    "AuthorizationVersionPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "has_more",
+        "next_cursor",
+        "page_count"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AuthorizationVersion"
+          }
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "page_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      }
+    },
+    "PrecheckPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "has_more",
+        "next_cursor",
+        "page_count"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PolicyDecision"
+          }
+        },
+        "has_more": {
+          "type": "boolean"
+        },
+        "next_cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "page_count": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
         }
       }
     }

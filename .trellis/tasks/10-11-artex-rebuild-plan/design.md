@@ -1,6 +1,6 @@
 # 新一代授权安全验证平台设计
 
-本文描述完整平台的目标架构。用户已批准从 P0 开始，当前首个草稿命令切片的实际合同见 [子任务设计](../archive/2026-10/10-12-p0-command-foundation/design.md)；Temporal、Runner、企业身份和完整领域闭环仍属后续实施，不能由本图推定已完成。
+本文描述完整平台的目标架构。草稿命令与企业身份已完成本地验收，实际合同见 [草稿设计](../archive/2026-10/10-12-p0-command-foundation/design.md) 和 [身份设计](../archive/2026-10/10-12-p0-identity-access/design.md)。第三个 [授权与资产切片](../10-12-p0-authorization-assets/design.md) 已完成本地验收；Temporal、Runner、审批、证据及完整领域闭环仍属后续实施，不能由本图推定已完成。
 
 ## 架构选择
 
@@ -158,6 +158,8 @@ Prompt/Skill 视为版本化的规划输入；MCP 和自定义工具视为潜在
 | 策略/密钥  | Go PDP 后续 OPA、Vault/企业 secret broker、KMS                                                                    | 策略可审计、可版本化；secret broker 发放短期凭据，KMS 保护加解密密钥。                                                                                                                 |
 | 隔离与调度 | Kubernetes Job + default-deny CNI；按需 gVisor/Kata/microVM                                                       | 首版需验证真实出口不可旁路；额外沙箱和 KEDA 按隔离/容量要求引入。                                                                                                                      |
 | 可观测性   | OpenTelemetry、Prometheus/Grafana；按需 Loki/Tempo                                                                | 先覆盖任务、策略、Runner、模型调用与成本；完整日志/trace 存储按运行规模选用。                                                                                                          |
+
+用户于 2026-10-13 确定采用 shadcn-admin 开源后台源码为前端底座，替换此前 Next.js Starter 选择。现有实现仍使用 Vite/React Router；后续独立整合真实布局、导航、主题与表格，去除 mock/Clerk 认证并接入 Go OIDC。沿用 React Router 以保留 location.key 搜索历史与项目祖先 unknown 恢复；上游 TanStack Router 依赖须适配，不同时引入两个 Router。来源、固定提交和逐文件差异见 [源码研究](research/shadcn-admin-foundation.md)。
 
 ### 前端选型细节
 

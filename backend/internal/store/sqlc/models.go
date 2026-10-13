@@ -21,6 +21,24 @@ type AccessAuditEvent struct {
 	OccurredAt     pgtype.Timestamptz
 }
 
+type Asset struct {
+	ID               pgtype.UUID
+	Kind             string
+	CanonicalValue   string
+	AlgorithmVersion string
+}
+
+type AssetImportSource struct {
+	ProjectID   pgtype.UUID
+	AssetID     pgtype.UUID
+	NamespaceID pgtype.UUID
+	CommandID   pgtype.UUID
+	Source      string
+	Notes       string
+	ExternalRef string
+	CreatedAt   pgtype.Timestamptz
+}
+
 // 与命令及草稿同事务提交的业务审计，不记录完整请求参数。
 type AuditEvent struct {
 	ProjectID  pgtype.UUID
@@ -29,6 +47,41 @@ type AuditEvent struct {
 	TaskID     pgtype.UUID
 	EventType  string
 	OccurredAt pgtype.Timestamptz
+}
+
+type AuthorizationLetter struct {
+	ProjectID    pgtype.UUID
+	NextSequence int64
+}
+
+type AuthorizationScopeEntry struct {
+	ID                pgtype.UUID
+	ProjectID         pgtype.UUID
+	VersionID         pgtype.UUID
+	Ordinal           int32
+	Kind              string
+	Value             string
+	IncludeSubdomains bool
+	Operations        []string
+	Ports             []int32
+	ResolvedIpCidrs   []string
+}
+
+type AuthorizationVersion struct {
+	ID          pgtype.UUID
+	ProjectID   pgtype.UUID
+	Sequence    int64
+	Content     []byte
+	ContentHash string
+	ValidFrom   pgtype.Timestamptz
+	ExpiresAt   pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
+}
+
+type AuthorizationVersionState struct {
+	ProjectID pgtype.UUID
+	VersionID pgtype.UUID
+	State     string
 }
 
 // 命令受理权威记录；已受理不表示任何目标行为已执行。
@@ -60,6 +113,11 @@ type ExternalIdentity struct {
 	UpdatedAt   pgtype.Timestamptz
 }
 
+type GlobalPolicyState struct {
+	Singleton bool
+	Revision  int64
+}
+
 // 一次性登录尝试；摘要防止数据库泄露可重放 state 或浏览器绑定值。
 type OidcLoginAttempt struct {
 	StateDigest   []byte
@@ -82,6 +140,18 @@ type OutboxEvent struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+// 纯本地静态决策历史，不是执行许可或已验证观测。
+type PolicyPrecheck struct {
+	ID             pgtype.UUID
+	ProjectID      pgtype.UUID
+	VersionID      pgtype.UUID
+	MatchedEntryID pgtype.UUID
+	NamespaceID    pgtype.UUID
+	CommandID      pgtype.UUID
+	CheckedAt      pgtype.Timestamptz
+	Decision       []byte
+}
+
 // 单企业部署内的项目访问边界。
 type Project struct {
 	ID        pgtype.UUID
@@ -89,6 +159,12 @@ type Project struct {
 	Status    string
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+}
+
+type ProjectAsset struct {
+	ProjectID pgtype.UUID
+	AssetID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
 }
 
 // 项目角色权威；撤销保留原行并递增 version，供事务锁串行化。
@@ -101,6 +177,63 @@ type ProjectMembership struct {
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
 	RevokedAt pgtype.Timestamptz
+}
+
+type ProjectPolicyState struct {
+	ProjectID pgtype.UUID
+	// 授权与禁止变更修订号，API 十进制字符串；候选保存不递增。
+	Revision        int64
+	ActiveVersionID pgtype.UUID
+}
+
+type ScopeAuditEvent struct {
+	NamespaceID    pgtype.UUID
+	CommandID      pgtype.UUID
+	ActorID        pgtype.UUID
+	OperatorSource string
+	EventType      string
+	Summary        []byte
+	CreatedAt      pgtype.Timestamptz
+}
+
+type ScopeCommand struct {
+	NamespaceID    pgtype.UUID
+	CommandID      pgtype.UUID
+	ProjectID      pgtype.UUID
+	ActorID        pgtype.UUID
+	OperatorSource string
+	OperatorRef    string
+	Kind           string
+	Payload        []byte
+	PayloadHash    string
+	AcceptedAt     pgtype.Timestamptz
+	Receipt        []byte
+}
+
+type ScopeCommandNamespace struct {
+	ID        pgtype.UUID
+	Kind      string
+	ProjectID pgtype.UUID
+}
+
+type ScopeDeny struct {
+	ID                pgtype.UUID
+	ProjectID         pgtype.UUID
+	Kind              string
+	Value             string
+	IncludeSubdomains bool
+	Reason            string
+	Active            bool
+	CreatedAt         pgtype.Timestamptz
+}
+
+// 与受理同事务追加；本切片无消费者，不触发目标执行。
+type ScopeOutboxEvent struct {
+	NamespaceID pgtype.UUID
+	CommandID   pgtype.UUID
+	EventType   string
+	Summary     []byte
+	CreatedAt   pgtype.Timestamptz
 }
 
 // 服务端会话；只保存随机 Cookie 原值的 SHA-256 摘要。

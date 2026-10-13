@@ -23,21 +23,23 @@ import {
 } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { commandLookupSchema, normalizeTaskTitle, taskDraftSchema } from './command-schema';
-import { useCommandWorkspace } from './use-command-workspace';
+import type { CommandWorkspaceState } from './use-command-workspace';
 import { CommandResult } from './command-result';
 
 /** 工作台依赖服务端校验过的当前开发项目。 */
 interface CommandWorkspaceProps {
-  actorId: string;
   project: components['schemas']['ProjectAccess'];
+  workspace: CommandWorkspaceState;
 }
 
 /** 提供草稿创建与既有命令恢复；未知提交期间锁定参数并保留 ID。 */
-export function CommandWorkspace({ actorId, project }: CommandWorkspaceProps) {
-  const workspace = useCommandWorkspace(actorId, project.id);
+export function CommandWorkspace({ project, workspace }: CommandWorkspaceProps) {
   const canCreate = project.capabilities.includes('task_draft:create');
   const [copyNotice, setCopyNotice] = useState('');
-  const draft = useForm({ resolver: zodResolver(taskDraftSchema), defaultValues: { title: '' } });
+  const draft = useForm({
+    resolver: zodResolver(taskDraftSchema),
+    defaultValues: { title: workspace.selection?.title ?? '' },
+  });
   const { setFocus } = draft;
   const focusAfterUnlock = useRef(false);
   const lookup = useForm({

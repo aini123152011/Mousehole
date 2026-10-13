@@ -1,4 +1,4 @@
-// Command admin 提供受控的身份预置、会话撤销、用户禁用和成员撤销入口。
+// Command admin 提供受控身份管理及授权激活、撤销、禁止和原回执恢复入口。
 package main
 
 import (
@@ -61,6 +61,10 @@ func dispatch(args []string) commandOutcome {
 		return runUserMutation("disable-user", args[1:], identity.DisableUserWithPool)
 	case "revoke-membership":
 		return runRevokeMembership(args[1:])
+	case "scope":
+		return runScope(args[1:], false)
+	case "scope-command":
+		return runScope(args[1:], true)
 	default:
 		return usageOutcome("未知管理命令")
 	}
@@ -231,6 +235,6 @@ func commandUsage(name string) string {
 	case "revoke-membership":
 		return "用法：mousehole-admin revoke-membership --database-url <DSN> --user-id <UUID> --project-id <UUID>"
 	default:
-		return "可用命令：provision-user、revoke-sessions、disable-user、revoke-membership"
+		return "可用命令：provision-user、revoke-sessions、disable-user、revoke-membership、scope activate|revoke|deny-add|deny-revoke、scope-command get"
 	}
 }

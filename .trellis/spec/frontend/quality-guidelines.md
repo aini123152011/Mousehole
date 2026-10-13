@@ -12,6 +12,8 @@
 
 真实 API、PostgreSQL 和合成 OIDC issuer 已启动后运行 `pnpm --dir web e2e`。mock/组件检查证明交互逻辑，真实 E2E 证明登录、Cookie 会话、Vite 代理、Go 和数据库贯通；二者准确区分。浏览器验收覆盖登录/退出、创建/恢复、响应丢失、明确冲突、权限撤销、键盘与窄屏，并断言 URL 与 Web Storage 不含协议秘密。Playwright trace 会保存请求头和 Cookie，身份流程不得生成或上传未脱敏 trace；涉及 Cookie、CSRF、DSN 的断言和子进程错误只输出固定说明或布尔结果。只测试风险与可观察行为，不为格式或注释新增镜像测试。
 
+统一入口 `python scripts/verify_authorization_e2e.py --environment-file <显式环境映射>` 负责服务生命周期和本轮随机双项目；分页验收必须创建超过一页数据，检查无缺漏/重复、cursor 与搜索历史位置匹配。新旧 unknown 都要跨路由验证原 ID/参数与仅一次 PUT。成员撤销最后在独立项目执行，重跑换新夹具，不恢复 revoked 状态。截图仅合成数据，须人工核对中文说明、焦点和窄屏。
+
 E2E 登录 helper 必须先等待 session 加载后的“登录或工作台”任一稳定状态，再决定是否点击登录。禁止在 `page.goto` 后立即用 `isVisible()` 分支；它不等待 React 首次渲染，会让测试根本没有发起 OIDC 流程。
 
 ```typescript

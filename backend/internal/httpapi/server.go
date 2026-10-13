@@ -16,6 +16,7 @@ import (
 
 	"mousehole/backend/internal/command"
 	"mousehole/backend/internal/identity"
+	"mousehole/backend/internal/validation"
 )
 
 // Commands 是传输层需要的最小业务接口；真实实现由 command.Service 提供。
@@ -36,9 +37,10 @@ type Identities interface {
 
 // APIError 是与 OpenAPI 一致的公开错误，不包含底层异常或完整请求。
 type APIError struct {
-	Code      string `json:"code"`
-	Message   string `json:"message"`
-	RequestID string `json:"request_id"`
+	Code             string             `json:"code"`
+	Message          string             `json:"message"`
+	RequestID        string             `json:"request_id"`
+	ValidationErrors []validation.Issue `json:"validation_errors,omitempty"`
 }
 
 // SessionResponse 是浏览器内存中的当前会话投影；不含 Cookie 或 OIDC token。
@@ -56,13 +58,14 @@ type server struct {
 	commands   Commands
 	identities Identities
 	logger     *slog.Logger
+	scopes     Scopes
 }
 type requestIDKey struct{}
 type principalKey struct{}
 type sessionTokenKey struct{}
 
 // NewHandler 校验配置并创建路由；受保护路由只从服务端会话取得 actor。
-func NewHandler(cfg Config, commands Commands, identities Identities, logger *slog.Logger) (http.Handler, error) {
+func NewHandler(cfg Config, commands Commands, identities Identities, logger *slog.Logger, scopes ...Scopes) (http.Handler, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -73,6 +76,9 @@ func NewHandler(cfg Config, commands Commands, identities Identities, logger *sl
 		logger = slog.Default()
 	}
 	s := &server{cfg: cfg, commands: commands, identities: identities, logger: logger}
+	if len(scopes) > 0 {
+		s.scopes = scopes[0]
+	}
 	router := chi.NewRouter()
 	router.Use(s.boundary)
 	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +91,7 @@ func NewHandler(cfg Config, commands Commands, identities Identities, logger *sl
 			r.Use(s.requireSession)
 			r.Get("/session", s.session)
 			r.With(s.requireCSRF).Post("/auth/logout", s.logout)
+			s.scopeRoutes(r)
 			r.Route("/projects/{project_id}/commands/{command_id}", func(r chi.Router) {
 				r.Use(s.commandBoundary)
 				r.With(s.requireCSRF).Put("/", s.accept)

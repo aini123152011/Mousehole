@@ -39,7 +39,9 @@ body {
   min-width: 320px;
 }
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 button:not(:disabled),
@@ -188,6 +190,7 @@ a:focus-visible {
   border-radius: 5px;
 }
 .nav-link {
+  color: #d3ddd4;
   display: flex;
   gap: 12px;
   align-items: center;
@@ -974,9 +977,10 @@ a:focus-visible {
     position: static;
     width: 100%;
     padding: 17px 20px;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 18px;
+    gap: 12px;
   }
   .brand {
     font-size: 21px;
@@ -991,12 +995,22 @@ a:focus-visible {
   }
   .workspace-identity,
   .sidebar-section-label,
-  .project-switcher,
   .sidebar-bottom {
     display: none;
   }
+  /* 手机保留真实项目选择入口，长项目名不撑宽导航。 */
+  .project-switcher {
+    display: block;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+  }
   .sidebar nav {
-    margin-left: auto;
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin-left: 0;
   }
   .nav-link {
     font-size: 12px;
@@ -1064,5 +1078,375 @@ a:focus-visible {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* 范围工作台共享密度、焦点和换行规则；目标内容仅按文本展示。 */
+.scope-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.scope-page [data-slot='card'],
+.scope-command-panel {
+  min-width: 0;
+  border-radius: 11px;
+  gap: 18px;
+  box-shadow: 0 2px 6px #263a2003;
+}
+.scope-page h2,
+.scope-command-panel h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+.scope-command-panel {
+  margin-top: 24px;
+}
+.scope-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.scope-form label,
+.list-filter label,
+.scope-command-panel label {
+  display: block;
+  font-size: 13px;
+  font-weight: 550;
+  margin-bottom: 7px;
+  color: #394d3a;
+}
+.scope-form select,
+.list-filter select {
+  width: 100%;
+  border: 1px solid #d7ddd4;
+  background: #fff;
+  border-radius: 6px;
+  padding: 9px 10px;
+}
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #759b7b;
+  outline-offset: 3px;
+}
+.scope-textarea {
+  display: block;
+  min-height: 78px;
+  width: 100%;
+  height: auto;
+  border: 1px solid #d7ddd4;
+  border-radius: 6px;
+  padding: 10px 12px;
+  resize: vertical;
+  background: #fff;
+}
+.scope-textarea:disabled,
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.form-grid.budgets {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.action-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.list-filter {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.list-filter > div:first-child {
+  min-width: 160px;
+}
+.list-filter > .grow {
+  min-width: 160px;
+}
+.permission-note,
+.boundary-note {
+  background: #faf6e9;
+  color: #746133;
+  border: 1px solid #eee4c8;
+  padding: 14px 16px;
+  border-radius: 7px;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+.boundary-note {
+  margin-bottom: 0;
+}
+.boundary-note p {
+  margin-top: 6px;
+}
+.query-status {
+  padding: 16px 0;
+  color: #63705e;
+  font-size: 13px;
+}
+.query-error {
+  color: #a36550;
+}
+.query-error button {
+  margin-top: 8px;
+}
+.preview-block {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px dashed #d5dfce;
+  border-radius: 8px;
+}
+.preview-rows {
+  padding: 0;
+  list-style: none;
+  margin: 14px 0 0;
+}
+.preview-rows li {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid #e8ede1;
+  padding: 8px 0;
+}
+.preview-rows li > span:first-child {
+  flex-shrink: 0;
+}
+.preview-rows code,
+.record-list code,
+.scope-details code,
+.runtime-checks code,
+.admin-guidance code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.record-list {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+}
+.record-list > li {
+  padding: 17px 0;
+  border-bottom: 1px solid #e8ede1;
+  overflow-wrap: anywhere;
+}
+.record-list > li:first-child {
+  border-top: 1px solid #e8ede1;
+}
+.record-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.record-title a {
+  font-weight: 550;
+}
+/* 按钮链接由 shadcn 的变体控制颜色，避免普通链接覆盖按钮文字。 */
+.scope-page a:not([data-slot='button']),
+.scope-command-panel a:not([data-slot='button']) {
+  color: #386547;
+  text-underline-offset: 3px;
+}
+.type-label {
+  display: inline-block;
+  border: 1px solid #e0e5d9;
+  color: #65735b;
+  border-radius: 5px;
+  font-size: 12px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+}
+.asset-record details {
+  margin-top: 10px;
+}
+summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: #556d4e;
+  padding: 4px 0;
+}
+.source-list {
+  margin: 8px 0 0;
+  padding-left: 22px;
+  font-size: 12px;
+}
+.source-list li {
+  padding: 8px 0;
+  overflow-wrap: anywhere;
+}
+.list-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+.list-pagination p {
+  font-size: 12px;
+  color: #65735b;
+}
+.entry-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.scope-entry {
+  min-width: 0;
+  border: 1px solid #e2e6df;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.scope-entry legend {
+  padding: 0 6px;
+  color: #63705e;
+  font-size: 13px;
+}
+.scope-form .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 0;
+  font-weight: 400;
+}
+.checkbox-label input {
+  accent-color: #3a6348;
+  width: 15px;
+  height: 15px;
+}
+.operation-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+.section-title {
+  font-size: 14px;
+  margin-top: 20px;
+  font-weight: 600;
+}
+.scope-details {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+.scope-details > div {
+  display: grid;
+  grid-template-columns: minmax(100px, 165px) minmax(0, 1fr);
+  gap: 16px;
+}
+.scope-details dt {
+  color: #65735b;
+  font-size: 13px;
+}
+.scope-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.admin-guidance {
+  margin-top: 15px;
+  font-size: 12px;
+}
+.admin-guidance p,
+.admin-guidance code {
+  display: block;
+  margin-top: 8px;
+}
+.scope-status {
+  margin: 18px 0 10px;
+  color: #786439;
+  font-size: 13px;
+}
+.scope-status strong {
+  display: block;
+  font-weight: 600;
+}
+.scope-status p {
+  margin-top: 6px;
+}
+.receipt-summary {
+  padding: 15px 0;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.scope-command-panel .lookup-row {
+  align-items: end;
+  flex-wrap: wrap;
+}
+.decision-message {
+  margin: 20px 0 8px;
+  font-weight: 550;
+}
+.reason-code {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.runtime-checks {
+  padding: 0;
+  list-style: none;
+  margin-top: 10px;
+}
+.runtime-checks li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-bottom: 1px solid #e8ede1;
+}
+.runtime-checks code {
+  font-size: 11px;
+  color: #63705e;
+}
+@media (max-width: 900px) {
+  .sidebar {
+    padding-top: 24px;
+  }
+  .sidebar-bottom {
+    margin-top: 20px;
+  }
+  .scope-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .scope-details > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .record-title {
+    align-items: start;
+  }
+  .list-filter,
+  .list-pagination {
+    align-items: stretch;
+  }
+  .list-filter > div,
+  .list-filter > .grow {
+    width: 100%;
+  }
+  .runtime-checks li {
+    flex-direction: column;
+    gap: 6px;
   }
 }

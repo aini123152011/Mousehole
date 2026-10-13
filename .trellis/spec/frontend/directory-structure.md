@@ -2,10 +2,14 @@
 
 ```text
 web/src/
-  app/                       # 应用与 QueryClient 组装
+  app/                       # 路由、QueryClient 与保护缓存边界
   api/client.ts              # 唯一 HTTP 与运行时校验边界
   api/generated/             # OpenAPI 生成类型和 JSON Schema
   features/commands/         # 草稿表单、状态 Hook、回执
+  features/assets/           # 导入预览、来源、项目列表与内存搜索
+  features/authorization/    # 不可变版本、复制表单与当前策略
+  features/prechecks/        # 静态解释与历史决策，不发起目标连接
+  features/scope/            # 跨页面范围命令、分页和共享交互
   components/ui/             # Button/Input/Card/Badge 及来源记录
   lib/utils.ts               # className 合并这一职责
   styles/globals.css         # Tailwind 与统一设计 token

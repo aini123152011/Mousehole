@@ -6,7 +6,7 @@
 
 ## 2. 签名
 
-`python scripts/dev.py database|migrate|migration-status|api|web`；`python scripts/check.py --scope all|backend|web|text [--integration] [--race] [--e2e]`；`python scripts/verify_restart.py`。
+`python scripts/dev.py database|migrate|migration-status|oidc|api|web`；`python scripts/check.py --scope all|backend|web|text [--integration] [--race] [--e2e]`；`python scripts/verify_restart.py [--environment-file <JSON>]`；`python scripts/verify_authorization_e2e.py [--environment-file <JSON>]`。
 
 ## 3. 合同
 
@@ -14,7 +14,7 @@ API/迁移必须显式 `MOUSEHOLE_MODE=development` 与 `MOUSEHOLE_DATABASE_URL`
 
 Compose 的 PostgreSQL 17 镜像固定 digest，端口只发布到 127.0.0.1:55432。database 保留已有卷，按需创建固定 mousehole_test。Go 从 `.tools/go版本/go/bin` 优先定位，再查 PATH，核对实际版本；Node/pnpm 同样精确核对。subprocess 使用参数数组，禁止字符串 shell 拼接。
 
-check 不覆写生成目录：sqlc 临时副本生成、Web 临时生成对比。integration 缺 DSN 失败，e2e 需已迁移的 8080 API，Playwright 拥有自己的 5173 Web 进程。verify_restart 在随机端口启动其拥有的 API 两次，清理本检查进程并保留合成验收记录。
+check 不覆写生成目录：sqlc 临时副本生成、Web 临时生成对比。integration 缺 DSN 失败。统一授权 E2E 入口构建/迁移/预置随机主项目与独立撤销项目，管理 8080 API、loopback issuer，Playwright 拥有 5173 Web；端口已占用必须失败，不停止其他服务。verify_restart 在随机端口启动其拥有的 API 两次，清理本检查进程并保留合成验收记录。显式 JSON 仅允许 MOUSEHOLE_ 字符串键值，合并到子进程环境；诊断脱敏，finally 收尾。本轮撤销后重跑必须换身份/项目/subject，不能恢复 revoked 成员通过测试。
 
 ## 4. 校验与错误矩阵
 

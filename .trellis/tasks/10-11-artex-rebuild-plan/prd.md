@@ -75,10 +75,10 @@ V1 为 P0–P2 的完整交付，包含：
 
 ## 关键决策与技术建议
 
-用户决定为单企业私有化、高自主执行、主动枚举与非破坏性验证上限，产品目标为能力与易用性优于 ARTEX。其余为本次基于源码提出的技术建议：Go 模块化控制面、PostgreSQL、Temporal、React/TypeScript/Vite + shadcn/ui 静态 Web、S3 兼容证据存储、OIDC、Kubernetes 隔离 Runner 和受控出口。前端进一步推荐 React Router、TanStack Query/Table、React Hook Form/Zod 和一种主要图引擎；版本在实施时锁定。P0–P2 才是 V1；不并行建设第二套生产调度器。
+用户决定为单企业私有化、高自主执行、主动枚举与非破坏性验证上限，产品目标为能力与易用性优于 ARTEX。其余为本次基于源码提出的技术建议：Go 模块化控制面、PostgreSQL、Temporal、React/TypeScript/Vite + shadcn/ui 静态 Web、S3 兼容证据存储、OIDC、Kubernetes 隔离 Runner 和受控出口。用户于 2026-10-13 确定前端基于 shadcn-admin 真实源码整合，替换此前 Next.js Starter 方向；当前仍是既有 Vite/shadcn 实现，整合尚未开始。保留 React Router、TanStack Query、React Hook Form/Zod 和 OpenAPI/Ajv，按上游源码整合布局/导航/主题/Table；具体依据见 [底座研究](research/shadcn-admin-foundation.md)。图引擎和新依赖版本在相应实施时锁定。P0–P2 才是 V1；不并行建设第二套生产调度器。
 
 ## 风险与后置事项
 
 待隔离 PoC 验证的技术项是实际出口强制约束、适配器只读语义、长任务/图/SSE 容量、模型质量和私有化运维成本。提示注入用结构化 Action 与确定性策略隔离；大证据采用最小采集、脱敏、对象存储和保留规则。HA、KEDA、完整日志追踪、强化沙箱和新数据引擎按负载/交付需求增加，不先于业务闭环。
 
-无阻塞产品问题。规划状态保持 planning；本次建议交付不启动实施。完整架构和建设顺序见 [design.md](design.md) 与 [implement.md](implement.md)。
+总体方案已获批准，父任务保持 in_progress，持续承担 P0–P2 的跨切片验收。草稿命令和企业身份已完成，当前 [授权与资产切片](../10-12-p0-authorization-assets/prd.md) 已完成本地验收，待提交归档；下一切片为 shadcn-admin 底座整合规划。完整架构和建设顺序见 [design.md](design.md) 与 [implement.md](implement.md)。

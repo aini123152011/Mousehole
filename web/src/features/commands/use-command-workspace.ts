@@ -1,13 +1,12 @@
-import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   acceptCommand,
   CommandAPIError,
   getCommandReceipt,
   isDefinitiveRejection,
-  setSessionMemory,
 } from '../../api/client';
-import type { CreateTaskDraftCommand } from '../../api/client';
+import { handleProtectedAccessError } from '../../app/protected-cache';
 import { normalizeTaskTitle } from './command-schema';
 
 interface CommandSelection {
@@ -42,26 +41,6 @@ function noticeFor(error: unknown, isLookup: boolean): AdmissionNotice {
   return { message: '连接中断，受理状态待确认。请保留原命令 ID 并查询。', requestId: null };
 }
 
-function handleAccessError(
-  queryClient: ReturnType<typeof useQueryClient>,
-  error: unknown,
-  actorId: string,
-  projectId: string,
-) {
-  if (error instanceof CommandAPIError && error.status === 401) {
-    setSessionMemory(null);
-    queryClient.removeQueries({ queryKey: ['commands'] });
-    void queryClient.invalidateQueries({ queryKey: ['session'] });
-  } else if (
-    error instanceof CommandAPIError &&
-    error.status === 403 &&
-    error.code === 'project_forbidden'
-  ) {
-    queryClient.removeQueries({ queryKey: ['commands', actorId, projectId] });
-    void queryClient.invalidateQueries({ queryKey: ['session'] });
-  }
-}
-
 /**
  * 管理一次提交及人工恢复查询。回执只保存在 TanStack Query，局部状态仅表达交互。
  * 提交前同步锁定 ID/参数；响应丢失不会自动重发，也不会允许换参数创建另一命令。
@@ -73,6 +52,14 @@ export function useCommandWorkspace(actorId: string, projectId: string) {
   const [phase, setPhase] = useState<AdmissionPhase>('idle');
   const [notice, setNotice] = useState<AdmissionNotice | null>(null);
   const generation = useRef(0);
+  const writeController = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      ++generation.current;
+      writeController.current?.abort();
+    },
+    [],
+  );
   // 仅同步交互锁，不存放服务端快照；事件在下一次渲染前也须遵守同一边界。
   const interaction = useRef<{ selection: CommandSelection | null; phase: AdmissionPhase }>({
     selection: null,
@@ -99,31 +86,31 @@ export function useCommandWorkspace(actorId: string, projectId: string) {
     retry: false,
   });
 
-  const admission = useMutation({
-    mutationFn: ({ commandId, body }: { commandId: string; body: CreateTaskDraftCommand }) =>
-      acceptCommand(projectId, commandId, body),
-    retry: false,
-  });
-
   async function createDraft(title: string) {
     // ref 在第一次点击时立即占有操作，防止 React 下一次渲染前的重复提交。
     if (interaction.current.selection !== null) return;
     const commandId = crypto.randomUUID();
     const normalizedTitle = normalizeTaskTitle(title);
     const attempt = ++generation.current;
+    const controller = new AbortController();
+    writeController.current = controller;
     selectCommand({ commandId, source: 'submission', title: normalizedTitle });
     setNotice(null);
     changePhase('sending');
     try {
-      const receipt = await admission.mutateAsync({
+      // 单次请求不在 mutation cache 留存第二份标题/回执；唯一服务器快照归 Query。
+      const receipt = await acceptCommand(
+        projectId,
         commandId,
-        body: { kind: 'create_task_draft', payload: { title: normalizedTitle } },
-      });
+        { kind: 'create_task_draft', payload: { title: normalizedTitle } },
+        controller.signal,
+      );
+      if (generation.current !== attempt || controller.signal.aborted) return;
       queryClient.setQueryData(commandKeys.detail(actorId, projectId, commandId), receipt);
-      if (generation.current === attempt) changePhase('accepted');
+      changePhase('accepted');
     } catch (error: unknown) {
       if (generation.current !== attempt) return;
-      handleAccessError(queryClient, error, actorId, projectId);
+      handleProtectedAccessError(queryClient, error, actorId, projectId);
       setNotice(noticeFor(error, false));
       changePhase(isDefinitiveRejection(error) ? 'rejected' : 'unknown');
     }
@@ -160,7 +147,7 @@ export function useCommandWorkspace(actorId: string, projectId: string) {
       if (generation.current === attempt) changePhase('accepted');
     } catch (error: unknown) {
       if (generation.current !== attempt) return;
-      handleAccessError(queryClient, error, actorId, projectId);
+      handleProtectedAccessError(queryClient, error, actorId, projectId);
       // 即便查询拒绝或超时，也不据此解锁本页曾发出的未知提交。
       setNotice(
         previousReceipt === undefined
@@ -204,3 +191,6 @@ export function useCommandWorkspace(actorId: string, projectId: string) {
     startNewDraft,
   };
 }
+
+/** 项目祖先持有的旧草稿命令交互，跨功能导航仍保留原 ID/标题。 */
+export type CommandWorkspaceState = ReturnType<typeof useCommandWorkspace>;

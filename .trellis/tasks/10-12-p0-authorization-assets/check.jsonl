@@ -1,0 +1,15 @@
+{"file":".trellis/tasks/10-12-p0-authorization-assets/research/artex-scope-and-reuse.md","reason":"独立核对 ARTEX 证据、PRIVATE 后缀/URL/CIDR 反例及 spec 与权限实现差异"}
+{"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md","reason":"人工核查中文注释完整性、接口/事务语义和统一格式"}
+{"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md","reason":"抽查包说明、导出符号、迁移、Hook 与测试的中文模板"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"真实 PG/格式/生成/兼容检查，禁止以 skip 或配置替代通过"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"旧草稿四类记录兼容、权限串行化和审计失败回滚"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"公开码/HTTP 状态配对、跨 actor 不泄露和结果未知恢复"}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"确认请求日志、审计和 CLI 不输出 URL query/联系人或认证秘密"}
+{"file":".trellis/spec/backend/tooling-contract.md","reason":"显式模式/环境、随机测试 schema 与本地工具生命周期"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Vitest/真实 Playwright、中文语义和键盘验证证据"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"缓存清理覆盖所有新特性、未知/迟到与跨身份隔离"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"生成漂移、Ajv 校验、ID/版本/时间以及错误状态绑定"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"shadcn 许可证/provenance、中文标签与可访问组合行为"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"从输入/规范化/DB/HTTP 到 UI 验证规则与状态一致"}
+{"file": ".trellis/spec/backend/authorization-assets-contract.md", "reason": "最终范围事务与迁移的可执行合同"}
+{"file": ".trellis/spec/frontend/scope-workspace-contract.md", "reason": "最终范围页面与客户端的可执行合同"}

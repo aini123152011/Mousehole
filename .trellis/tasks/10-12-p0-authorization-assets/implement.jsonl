@@ -1,0 +1,17 @@
+{"file":".trellis/tasks/10-12-p0-authorization-assets/research/artex-scope-and-reuse.md","reason":"ARTEX 取长补短的源码证据、规范化反例、权限实际锁范围和旧账本兼容"}
+{"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-standards.md","reason":"已批准的中文注释、统一格式、事务权限和生成内容规则"}
+{"file":".trellis/tasks/10-11-artex-rebuild-plan/coding-templates.md","reason":"Go 包与符号、SQL/migration、API、TS Hook/组件和测试中文模板"}
+{"file":".trellis/spec/backend/index.md","reason":"后端开发前必读入口与现有实际合同"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"既有草稿与身份事务合同；实际 user/project 锁缺口以研究和新设计为准"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"权限、公开错误、Commit 未知和管理员 CLI 行为"}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"中文 slog 和不记录目标/认证秘密的日志边界"}
+{"file":".trellis/spec/backend/tooling-contract.md","reason":"锁定本地工具、显式配置、迁移及真实检查入口"}
+{"file":".trellis/spec/frontend/index.md","reason":"React/shadcn 特性结构与实际前端合同入口"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"中文组合控件、shadcn 来源和键盘/焦点要求"}
+{"file":".trellis/spec/frontend/hook-guidelines.md","reason":"同步交互锁、发送前命令 ID 和迟到响应防护"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Query 权威、会话/项目缓存隔离和未知受理恢复"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"OpenAPI/Ajv 运行时校验、对象匹配和 BIGINT 字符串"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"统一规范化、权限、事务、HTTP 与 UI 的跨层审查"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复用既有身份/command 模式并防止复制不同的范围算法"}
+{"file": ".trellis/spec/backend/authorization-assets-contract.md", "reason": "新范围领域、命令账本和前向数据库合同"}
+{"file": ".trellis/spec/frontend/scope-workspace-contract.md", "reason": "跨页面未知恢复、搜索位置和保护缓存合同"}

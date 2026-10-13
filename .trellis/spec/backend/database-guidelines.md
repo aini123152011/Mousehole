@@ -2,7 +2,7 @@
 
 ## 1. 范围与触发
 
-适用于身份预置、服务端会话、成员授权、草稿命令的受理与查询、表结构及 sqlc 生成。四类命令记录是当前原子边界，outbox 尚无消费者。依据 [命令服务](../../../backend/internal/command/service.go)、[身份存储](../../../backend/internal/identity/store.go)、[身份迁移](../../../backend/db/migrations/00002_identity_access.sql) 和数据库查询。
+适用于身份预置、服务端会话、成员授权、草稿命令的受理与查询、表结构及 sqlc 生成。草稿四类记录构成一个原子边界；范围命令使用独立账本、业务对象、审计和 outbox 原子边界，详情见 [授权与资产合同](authorization-assets-contract.md)。两类 outbox 均尚无消费者。依据 [命令服务](../../../backend/internal/command/service.go)、[身份存储](../../../backend/internal/identity/store.go)、[身份迁移](../../../backend/db/migrations/00002_identity_access.sql) 和数据库查询。
 
 ## 2. 签名
 
@@ -19,7 +19,7 @@ func (s *Service) Get(ctx context.Context, actorID, projectID, commandID string)
 
 `INSERT ... ON CONFLICT DO NOTHING` 通过唯一键等待竞争者；下一条查询读取已提交记录，核对 actor、kind、规范化标题。同参数返回原回执及 `created=false`，新记录同事务写命令、草稿、审计、outbox，提交成功后返回 `created=true`。bootstrap 在一个事务内幂等创建或核对 user、external identity、project、membership 并写管理审计；异参数或唯一绑定冲突不得覆盖原记录。
 
-管理员撤销必须先以 `FOR UPDATE` 锁定稳定用户或成员行，再在同一事务更新状态、撤销会话并写 `access_audit_events`。用户、成员、命令和历史审计都不物理删除；成员撤销递增 version。重复执行在目标已处于所需状态时成功返回，不重复写管理审计；目标从未存在与幂等重放必须使用不同错误。
+权限检查复用 `internal/access.Lock`，按 user → project → membership 完整取锁，不能只锁成员行。身份管理员按对应顺序 `FOR UPDATE`，再更新状态、撤销会话并写 `access_audit_events`；范围事务随后锁 global/project policy 稳定行。用户、成员、命令和历史审计都不物理删除；成员撤销递增 version。重复执行在目标已处于所需状态时成功返回，不重复写管理审计；目标从未存在与幂等重放必须使用不同错误。
 
 版本存 BIGINT，API 返回十进制字符串；时间存 TIMESTAMPTZ，API 返回 UTC RFC3339。SQL 参数化，业务字段英文 snake_case，SQL 说明与 COMMENT 中文。sqlc 目录只通过固定版本生成器更新。
 

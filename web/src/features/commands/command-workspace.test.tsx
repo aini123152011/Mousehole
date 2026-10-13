@@ -1,11 +1,13 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CommandAPIError } from '../../api/client';
 import { createQueryClient } from '../../app/query-client';
 import { analystProject, receiptFor } from '../../test/fixtures';
 import { CommandWorkspace } from './command-workspace';
+import { useCommandWorkspace } from './use-command-workspace';
 
 const apiMock = vi.hoisted(() => ({ acceptCommand: vi.fn(), getCommandReceipt: vi.fn() }));
 vi.mock('../../api/client', async (importOriginal) => ({
@@ -21,9 +23,16 @@ beforeEach(() => {
 });
 
 function setup() {
+  function Workspace() {
+    const workspace = useCommandWorkspace(
+      '10000000-0000-4000-8000-000000000001',
+      analystProject.id,
+    );
+    return <CommandWorkspace project={analystProject} workspace={workspace} />;
+  }
   render(
     <QueryClientProvider client={createQueryClient()}>
-      <CommandWorkspace actorId="10000000-0000-4000-8000-000000000001" project={analystProject} />
+      <Workspace />
     </QueryClientProvider>,
   );
   return userEvent.setup();
@@ -79,5 +88,55 @@ describe('中文命令工作台', () => {
       'title-error',
     );
     expect(apiMock.acceptCommand).not.toHaveBeenCalled();
+  });
+
+  it('未知草稿跨功能导航后仍锁定原 ID 和标题，仅查询恢复不再 PUT', async () => {
+    apiMock.acceptCommand.mockRejectedValue(new TypeError('合成丢包'));
+    apiMock.getCommandReceipt.mockResolvedValue(receiptFor(commandId));
+    function Pages() {
+      const workspace = useCommandWorkspace(
+        '10000000-0000-4000-8000-000000000001',
+        analystProject.id,
+      );
+      return (
+        <>
+          <Link to="/">任务工作台</Link>
+          <Link to="/assets">资产</Link>
+          <Routes>
+            <Route
+              path="/"
+              element={<CommandWorkspace project={analystProject} workspace={workspace} />}
+            />
+            <Route path="/assets" element={<p>合成资产页</p>} />
+          </Routes>
+        </>
+      );
+    }
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <MemoryRouter>
+          <Pages />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await user.type(screen.getByRole('textbox', { name: '任务标题' }), '内部平台评估准备');
+    await user.click(screen.getByRole('button', { name: '创建草稿' }));
+    await screen.findByRole('heading', { name: '受理待确认' });
+    await user.click(screen.getByRole('link', { name: '资产' }));
+    await user.click(screen.getByRole('link', { name: '任务工作台' }));
+    expect(screen.getByRole('textbox', { name: '任务标题' })).toHaveValue('内部平台评估准备');
+    expect(screen.getByRole('textbox', { name: '任务标题' })).toBeDisabled();
+    expect(screen.getByTestId('current-command-id')).toHaveTextContent(commandId);
+    expect(screen.getByRole('button', { name: '创建草稿' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: '查询原命令' }));
+    await screen.findByRole('heading', { name: '已受理' });
+    expect(apiMock.acceptCommand).toHaveBeenCalledTimes(1);
+    expect(apiMock.getCommandReceipt).toHaveBeenCalledWith(
+      analystProject.id,
+      commandId,
+      expect.any(AbortSignal),
+      '内部平台评估准备',
+    );
   });
 });

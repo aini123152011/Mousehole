@@ -18,6 +18,7 @@ import (
 	"mousehole/backend/internal/command"
 	"mousehole/backend/internal/httpapi"
 	"mousehole/backend/internal/identity"
+	"mousehole/backend/internal/scopecommand"
 )
 
 func main() {
@@ -54,7 +55,7 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	handler, err := httpapi.NewHandler(cfg, command.NewService(pool), identityService, logger)
+	handler, err := httpapi.NewHandler(cfg, command.NewService(pool), identityService, logger, scopecommand.NewService(pool, cfg.AuthKey))
 	if err != nil {
 		return err
 	}

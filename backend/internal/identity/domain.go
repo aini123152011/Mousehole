@@ -17,6 +17,12 @@ const (
 	CapabilityProjectRead = "project:read"
 	// CapabilityTaskDraftCreate 表示创建任务草稿的能力。
 	CapabilityTaskDraftCreate = "task_draft:create"
+	// CapabilityAssetImport 表示整批导入项目资产的能力，不扩大执行许可。
+	CapabilityAssetImport = "asset:import"
+	// CapabilityAuthorizationCreate 表示保存只读候选内容，不包含激活权限。
+	CapabilityAuthorizationCreate = "authorization:create"
+	// CapabilityPolicyPrecheck 表示发起纯本地静态预检查，不授权目标执行。
+	CapabilityPolicyPrecheck = "policy:precheck"
 )
 
 var (
@@ -94,7 +100,7 @@ func CapabilitiesForRole(role string) []string {
 	case RoleViewer:
 		return []string{CapabilityProjectRead}
 	case RoleAnalyst:
-		return []string{CapabilityProjectRead, CapabilityTaskDraftCreate}
+		return []string{CapabilityProjectRead, CapabilityTaskDraftCreate, CapabilityAssetImport, CapabilityAuthorizationCreate, CapabilityPolicyPrecheck}
 	default:
 		return []string{}
 	}

@@ -6,7 +6,13 @@ export const analystProject: components['schemas']['ProjectAccess'] = {
   id: '10000000-0000-4000-8000-000000000002',
   name: '测试项目',
   role: 'analyst',
-  capabilities: ['project:read', 'task_draft:create'],
+  capabilities: [
+    'project:read',
+    'task_draft:create',
+    'asset:import',
+    'authorization:create',
+    'policy:precheck',
+  ],
   version: '1',
 };
 

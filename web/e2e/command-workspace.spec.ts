@@ -1,56 +1,8 @@
-import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { promisify } from 'node:util';
 import { expect, test } from '@playwright/test';
+import { csrfHeaders, login, requiredEnvironment } from './support';
 
-const execFileAsync = promisify(execFile);
-const actorId = '10000000-0000-4000-8000-000000000001';
-const projectId = '10000000-0000-4000-8000-000000000002';
-
-async function login(page: import('@playwright/test').Page) {
-  await page.goto('/');
-  const login = page.getByRole('link', { name: '登录' });
-  const workspace = page.getByRole('textbox', { name: '任务标题' });
-  await expect(login.or(workspace)).toBeVisible();
-  if (await login.isVisible()) await login.click();
-  await expect(workspace).toBeVisible();
-}
-
-async function csrfHeaders(page: import('@playwright/test').Page) {
-  const response = await page.request.get('/api/v1/session');
-  expect(response.status()).toBe(200);
-  const session: unknown = await response.json();
-  if (
-    typeof session !== 'object' ||
-    session === null ||
-    !('csrf_token' in session) ||
-    typeof session.csrf_token !== 'string'
-  ) {
-    throw new Error('真实会话缺少 CSRF token。');
-  }
-  return { 'X-CSRF-Token': session.csrf_token, Origin: 'http://127.0.0.1:5173' };
-}
-
-async function revokeMembership(adminBinary: string, databaseURL: string) {
-  try {
-    await execFileAsync(
-      adminBinary,
-      [
-        'revoke-membership',
-        '--database-url',
-        databaseURL,
-        '--user-id',
-        actorId,
-        '--project-id',
-        projectId,
-      ],
-      { timeout: 15_000, windowsHide: true },
-    );
-  } catch {
-    // 子进程错误包含完整命令参数；固定错误避免测试日志回显数据库连接串。
-    throw new Error('管理员撤销成员权限失败。');
-  }
-}
+const projectId = requiredEnvironment('MOUSEHOLE_E2E_PROJECT_ID');
 
 // 此文件要求真实 API 和 PostgreSQL；只写入合成草稿，不探测任何目标。
 test('真实登录、创建、同 ID 回放与冲突、刷新后找回持久化回执', async ({ page }, testInfo) => {
@@ -139,6 +91,14 @@ test('服务端已提交但浏览器响应丢失时仅 PUT 一次，通过原 ID
   await expect(page.getByRole('textbox', { name: '已有命令 ID' })).toBeDisabled();
   await expect(page.getByRole('button', { name: '新建另一份草稿' })).toHaveCount(0);
   const commandId = await page.getByTestId('current-command-id').innerText();
+  await page.getByRole('link', { name: '资产', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '批量导入资产' })).toBeVisible();
+  await page.getByRole('link', { name: '任务工作台', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '受理待确认', exact: true })).toBeVisible();
+  await expect(page.getByTestId('current-command-id')).toHaveText(commandId);
+  await expect(page.getByRole('textbox', { name: '任务标题' })).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: '任务标题' })).toHaveValue(/^响应丢失恢复 /);
+  await expect(page.getByRole('button', { name: '创建草稿' })).toBeDisabled();
   await page.getByRole('button', { name: '查询原命令' }).click();
   await expect(page.getByRole('heading', { name: '已受理', exact: true })).toBeVisible();
   await expect(page.getByTestId('current-command-id')).toHaveText(commandId);
@@ -171,6 +131,32 @@ test('手机布局无横向溢出，跳转链接、表单错误和焦点可由�
   expect(await navigation.boundingBox()).toEqual(navigationBounds);
   await page.keyboard.press('Enter');
   await expect(page.locator('#main-content')).toBeFocused();
+  // 手机项目选择必须可见且可由键盘切换，不能靠测试绕过隐藏控件。
+  const selector = page.getByRole('combobox', { name: '选择项目' });
+  await expect(selector).toBeVisible();
+  const projects = await selector
+    .locator('option')
+    .evaluateAll((options) => options.map((option) => option.getAttribute('value')));
+  const mainProjectIndex = projects.indexOf(projectId);
+  const otherProjectIndex = projects.findIndex((value) => value !== projectId);
+  const otherProjectId = projects[otherProjectIndex];
+  if (mainProjectIndex < 0 || typeof otherProjectId !== 'string') {
+    throw new Error('手机项目切换验收缺少本轮双项目夹具。');
+  }
+  await selector.focus();
+  await page.keyboard.press('Home');
+  for (let index = 0; index < otherProjectIndex; index += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expect(selector).toHaveValue(otherProjectId);
+  await expect(page.getByRole('textbox', { name: '任务标题' })).toBeVisible();
+  await selector.focus();
+  await page.keyboard.press('Home');
+  for (let index = 0; index < mainProjectIndex; index += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expect(selector).toHaveValue(projectId);
+  await expect(page.getByRole('textbox', { name: '任务标题' })).toBeVisible();
   await page.getByRole('button', { name: '创建草稿' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('alert')).toHaveText('请输入任务标题。');
@@ -180,62 +166,4 @@ test('手机布局无横向溢出，跳转链接、表单错误和焦点可由�
   );
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath('mobile-validation.png'), fullPage: true });
-});
-
-test('管理员撤销成员权限后，当前页面、后续请求和旧 Cookie 重载均无项目访问', async ({ page }) => {
-  const adminBinary = process.env.MOUSEHOLE_E2E_ADMIN_BIN;
-  const databaseURL = process.env.MOUSEHOLE_DATABASE_URL;
-  if (!adminBinary || !databaseURL) {
-    throw new Error('权限撤销 E2E 必须显式设置管理员二进制和数据库连接。');
-  }
-
-  await login(page);
-  const headers = await csrfHeaders(page);
-  const sessionCookie = (await page.context().cookies()).find((cookie) =>
-    cookie.name.endsWith('mousehole_session'),
-  );
-  if (!sessionCookie) throw new Error('真实登录未设置服务端会话 Cookie。');
-
-  await revokeMembership(adminBinary, databaseURL);
-
-  const responsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === 'PUT' &&
-      response.url().includes(`/projects/${projectId}/commands/`),
-  );
-  await page.getByRole('textbox', { name: '任务标题' }).fill(`撤销后拒绝 ${randomUUID()}`);
-  await page.getByRole('button', { name: '创建草稿' }).click();
-  const rejected = await responsePromise;
-  expect(rejected.status()).toBe(403);
-  expect(await rejected.json()).toMatchObject({ code: 'project_forbidden' });
-  await expect(page.getByText('尚未开通项目权限。', { exact: true })).toBeVisible();
-
-  const direct = await page.request.put(`/api/v1/projects/${projectId}/commands/${randomUUID()}`, {
-    headers,
-    data: { kind: 'create_task_draft', payload: { title: '撤销后的直接请求' } },
-  });
-  expect(direct.status()).toBe(403);
-  expect(await direct.json()).toMatchObject({ code: 'project_forbidden' });
-
-  const cookieAfterRejection = (await page.context().cookies()).find(
-    (cookie) => cookie.name === sessionCookie.name,
-  );
-  // 布尔断言在失败时只输出 true/false，不把 Cookie 原值写入测试日志。
-  expect(cookieAfterRejection?.value === sessionCookie.value).toBe(true);
-  await page.reload();
-  await expect(page.getByText('尚未开通项目权限。', { exact: true })).toBeVisible();
-
-  const sessionAfterReload = await page.request.get('/api/v1/session');
-  expect(sessionAfterReload.status()).toBe(200);
-  expect(await sessionAfterReload.json()).toMatchObject({ actor_id: actorId, projects: [] });
-  const rejectedAfterReload = await page.request.put(
-    `/api/v1/projects/${projectId}/commands/${randomUUID()}`,
-    {
-      headers,
-      data: { kind: 'create_task_draft', payload: { title: '旧 Cookie 重载后的直接请求' } },
-    },
-  );
-  expect(rejectedAfterReload.status()).toBe(403);
-  expect(await rejectedAfterReload.json()).toMatchObject({ code: 'project_forbidden' });
-  await expect(page.getByRole('textbox', { name: '任务标题' })).toHaveCount(0);
 });

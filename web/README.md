@@ -1,45 +1,53 @@
 # Mousehole 中文工作台
 
-此模块是已批准 P0 的开发纵向样本：在固定本地项目内创建任务草稿，读取服务端持久化回执。回执“已受理”只表示草稿已保存。页面没有目标访问、扫描、Runner 或 Agent 执行入口。
+本模块提供任务草稿、资产登记、授权版本和静态策略预检查。所有数据来自真实控制面 API；“已受理”表示记录已保存，“静态规则匹配”仍有运行时条件尚未检查。
 
 ## 技术与职责
 
-采用 React 19、TypeScript、Vite、Tailwind CSS 4 和自持 shadcn/ui 基础控件。TanStack Query 保存服务端 session、项目投影和命令回执；React 局部状态表达项目选择、命令选择、提交过程和提示；React Hook Form/Zod 校验表单。浏览器不保存 token、Cookie、CSRF 或服务器快照到 localStorage/sessionStorage。
+采用 React 19、TypeScript、Vite、Tailwind CSS 4 和自持 shadcn/ui 基础控件。TanStack Query 保存服务器 session、项目投影、列表、版本和原命令回执；React 局部状态保存编辑输入、交互阶段和项目内搜索位置；React Hook Form/Zod 校验表单，React Router 提供详情和返回导航。浏览器不把身份、CSRF、目标、输入草稿或回执写入 Web Storage、URL 或路由 history state。
 
-| 路径                     | 职责                                                               |
-| ------------------------ | ------------------------------------------------------------------ |
-| `src/app/`               | 页面外壳、企业会话查询、项目选择、退出和 Query 缓存配置            |
-| `src/features/commands/` | 草稿表单、原 ID 恢复、交互锁和回执展示                             |
-| `src/api/client.ts`      | 生成 HTTP client、Cookie 凭据、CSRF、超时和边界校验                |
-| `src/api/generated/`     | 从 [OpenAPI](../api/openapi.yaml) 生成的类型和 JSON Schema         |
-| `src/components/ui/`     | 自持基础控件，来源及升级规则见 [说明](src/components/ui/README.md) |
-| `src/styles/globals.css` | 统一 token、中文排版、焦点和响应式布局                             |
-| `e2e/`                   | 使用真实 API/PostgreSQL 的关键浏览器路径                           |
+| 路径                          | 职责                                                               |
+| ----------------------------- | ------------------------------------------------------------------ |
+| `src/app/`                    | 页面外壳、会话、项目选择、退出及保护缓存取消/移除                  |
+| `src/features/commands/`      | 任务草稿、原 ID 恢复及原有账本交互                                 |
+| `src/features/assets/`        | 手动/API 来源、服务端预览、项目列表及来源详情                      |
+| `src/features/authorization/` | 候选表单、不可变版本、复制及当前策略只读展示                       |
+| `src/features/prechecks/`     | 静态预检查输入、历史决策和运行时待检查项                           |
+| `src/features/scope/`         | 跨页面命令锁、原 ID 查询、分页和查询状态                           |
+| `src/api/client.ts`           | 生成 HTTP client、Cookie/CSRF、超时及响应对象绑定                  |
+| `src/api/generated/`          | 从 [OpenAPI](../api/openapi.yaml) 生成的类型和 JSON Schema         |
+| `src/components/ui/`          | 自持基础控件，来源及升级规则见 [说明](src/components/ui/README.md) |
+| `src/styles/globals.css`      | 统一 token、中文排版、焦点和响应式布局                             |
+| `e2e/`                        | 真实 API/PostgreSQL/OIDC 的关键浏览器路径                          |
 
-## 本地运行
+## 路由与业务边界
 
-依赖 Node.js **24.19.0**、pnpm **12.4.2**。从仓库根目录按 [根说明](../README.md) 准备并显式启动 PostgreSQL 和 API，随后在 `web/` 执行：
+`/` 创建任务草稿；`/assets` 查询/导入，`/assets/:assetId` 查看当前列表页中资产的本项目来源；`/authorization` 查看版本，`/authorization/new?copy=:versionId` 可复制为新候选，`/authorization/:versionId` 查看不可变正文；`/prechecks` 创建静态检查，`/prechecks/:decisionId` 查看持久化解释。地址栏仅使用对象 ID、非敏感类型和签名分页 cursor。
+
+资产输入最多 100 条，由服务端统一规范化。预览含错误行时整批不导入；变更输入或预览失败后需要再次确认预览。手动和 API 来源都是登记声明，资产存在不获得授权。列表采用 25 条 seek 分页，明确区分页内数量与未知总量。敏感搜索按 React Router 位置键保存在项目内存，详情返回和浏览器前进/后退恢复对应搜索与 cursor；退出、换项目或刷新后内存丢弃。
+
+候选保存后只读，复制仅创建新版本。预算以十进制字符串保存，时间输入使用本机时区并转为 UTC。激活、撤销、紧急禁止仅由受控管理员 CLI 完成；Web 没有管理员写入按钮。预检查只校验本地静态语义，不请求目标 DNS/TCP/HTTP。历史快照保留原时刻、hash、版本及原因，当前规则变化会提示；页面不提供执行令牌或扫描入口。
+
+## 命令与缓存边界
+
+提交前生成 UUID、克隆原参数并同步锁定。PUT 只发送一次，15 秒超时；断线、5xx、无效响应或身份/参数不匹配时显示“受理待确认”，保留原 ID/参数，只 GET 原 ID。GET 404 仍不证明未受理。范围命令锁由项目路由祖先持有，在资产、授权、预检查间导航保持有效；明确拒绝或已确认后可显式结束本次命令。
+
+刷新会丢弃页面内状态和缓存，通过 Cookie 重新读取 session。用户需保存原命令 ID，在原项目查询；纯查询不产生 PUT，不重新计算历史规则。已确认回执再次查询失败保留原记录并显示未更新。Query key 包含 actor、项目、筛选、cursor 和对象；退出/401/项目403/项目切换取消相应请求并移除领域缓存，选择代次阻止迟到写响应复活旧缓存。
+
+任务标题与 Go `strings.TrimSpace` 使用同一 Unicode `White_Space` 集合，按 Unicode 字符计数，接受 1–120 个字符；U+FEFF 不作为空白裁剪。
+
+## 本地运行与检查
+
+依赖 Node.js **24.19.0**、pnpm **12.4.2**。按 [根说明](../README.md) 准备并显式启动 PostgreSQL 和 API，在 `web/` 执行：
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-Linux 使用相同 pnpm 命令。浏览器地址是 `http://127.0.0.1:5173`；Vite 严格绑定此 loopback 地址与端口。`/api` 代理至 `http://127.0.0.1:8080` 并改写 Host，后端校验 Host/Origin。首次访问首屏显示企业登录入口；管理员必须先预置 `(issuer, subject)` 和项目角色。回调成功后服务端设置 HttpOnly Cookie，前端只把 session 响应内的 CSRF token 保存在内存。该样本不能以 Vite 开发服务交付生产环境。
+Linux 使用同一命令。浏览器地址为 `http://127.0.0.1:5173`，Vite 严格绑定 loopback。`/api` 代理至 `http://127.0.0.1:8080` 并改写 Host；后端校验 Host/Origin。管理员须先预置企业身份和项目角色，登录回调由服务端设置 HttpOnly Cookie，CSRF 只保存在内存。Vite 开发服务不是生产交付形态。
 
-`pnpm-workspace.yaml` 要求新依赖发布满 24 小时，不设置包级豁免。React Hook Form 7.89.0、Zod 4.6.5 满足窗口；依赖精确版本及唯一 lockfile 纳入审查。`ajv-formats` 2.1.1 满足已锁定 resolver 的 peer 约束。
-
-## 命令与恢复边界
-
-提交前生成 UUID 并同步锁定标题/命令 ID。标题与 Go `strings.TrimSpace` 使用同一 Unicode `White_Space` 集合，规范化后按 Unicode 字符计数，接受 1–120 个字符；U+FEFF 不作为空白裁剪。
-
-PUT 只发送一次，15 秒超时；网络中断、5xx、无效回执或参数失配均显示“受理待确认”。此时保持原 ID 和参数，禁用新建和其他 ID 查询，只允许 GET 原命令。GET 404 仍不证明未受理，用户可继续查询。明确匹配的 4xx 拒绝后才允许显式新建另一份草稿。
-
-刷新页面会丢弃页面内命令交互和缓存，并通过 Cookie 重新读取服务端会话；用户需保存原 ID，再用“找回已有命令”输入它。查询本身不产生 PUT；纯查询失败允许返回新建。已确认回执再次查询失败时保留上次记录并显示未更新提示。选择代次和包含 actor/项目/命令的 Query key 隔离迟到响应；退出、401、项目 403 与项目切换按范围清理缓存。
-
-## 契约生成与验证
-
-生成器读取 [OpenAPI](../api/openapi.yaml)，同时生成 TS 类型和 Ajv 2020 校验 schema。不得手改生成文件；未知字段、状态、对象身份和绑定标题均在统一 API 边界检查。英文生成标记及固定工具语法保留，手写注释和测试场景使用中文。
+新依赖遵循 `pnpm-workspace.yaml` 的 24 小时发布窗口；精确版本和唯一 lockfile 纳入审查。契约生成同时输出 TS 类型与 Ajv 2020 Schema，不能手改生成文件。API 边界验证未知字段、枚举、状态、嵌套项目、命令和对象身份、日期及分页一致性；手写注释、测试场景和错误说明使用中文。
 
 ```powershell
 pnpm run generate
@@ -52,13 +60,15 @@ pnpm run build
 pnpm peers check
 ```
 
-格式采用根 `.prettierrc.json`，仅精确忽略生成文件、许可证、lockfile 和构建产物。自持 UI 源码仍参加格式、lint 和类型检查。单元/组件测试验证响应丢失、404、明确拒绝、迟到查询、Unicode 边界和无效 HTTP 响应。
+格式采用根 `.prettierrc.json`，仅精确忽略生成文件、许可证、lockfile 和构建产物。自持 UI 源码参加全部检查。
 
-浏览器测试要求真实 API 已监听 `127.0.0.1:8080` 并完成数据库迁移。Playwright 自动启动 5173，依赖缺失会失败，不跳过或返回假业务数据：
+真实浏览器验收由 [验收脚本](../scripts/verify_authorization_e2e.py) 配置随机身份、两个项目和管理员二进制，并显式传入环境。Playwright 自动启动 5173；全部主项目场景串行，权限撤销项目依赖主验收完成后最后执行，避免撤销夹具污染其他测试。缺少真实依赖会失败，不跳过或伪造业务响应。
 
 ```powershell
 pnpm exec playwright install chromium
 pnpm run e2e
 ```
 
-测试使用随机 ID 的合成草稿，覆盖真实 OIDC 登录、Cookie 会话刷新/退出、创建、同 ID 回放/冲突、刷新找回、提交成功后浏览器丢包恢复、Web Storage 无秘密、手机布局及键盘焦点。截图位于被忽略的 `test-results/`。本切片尚未提供 SAML、SCIM、JIT、Web 成员管理、执行权限、SSE、执行工作流或完整读屏器认证；相应能力按后续阶段建设。
+验收只使用随机 ID 和合成保留目标，覆盖 OIDC/Cookie、资产错误行/去重/来源、筛选分页与返回、候选只读、CLI 激活/禁止、默认拒绝/运行时待检、原 ID 回放、真实提交后的浏览器丢包恢复、权限撤销及窄屏键盘操作。诊断截图在忽略的 `test-results/`；四张新切片合成截图写入 `docs/validation/assets/` 供文档核验。请求 trace 关闭，避免记录认证秘密。
+
+SAML、SCIM、Web 成员管理、Runner、Agent 执行、SSE 和完整读屏器认证仍属于后续切片。

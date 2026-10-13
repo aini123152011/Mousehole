@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"mousehole/backend/internal/access"
 	"mousehole/backend/internal/store/sqlc"
 )
 
@@ -40,10 +41,8 @@ func (s *Service) Accept(ctx context.Context, actorID, projectID, commandID stri
 	}
 	defer rollback(tx)
 	queries := sqlc.New(tx)
-	role, err := queries.LockProjectMembership(ctx, sqlc.LockProjectMembershipParams{
-		ProjectID: databaseID(projectID), UserID: databaseID(actorID),
-	})
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && role != "analyst") {
+	err = access.Lock(ctx, queries, actorID, projectID, true)
+	if errors.Is(err, access.ErrForbidden) {
 		return Receipt{}, false, ErrForbidden
 	}
 	if err != nil {
@@ -101,10 +100,8 @@ func (s *Service) Get(ctx context.Context, actorID, projectID, commandID string)
 	}
 	defer rollback(tx)
 	queries := sqlc.New(tx)
-	_, err = queries.LockProjectMembership(ctx, sqlc.LockProjectMembershipParams{
-		ProjectID: databaseID(projectID), UserID: databaseID(actorID),
-	})
-	if errors.Is(err, pgx.ErrNoRows) {
+	err = access.Lock(ctx, queries, actorID, projectID, false)
+	if errors.Is(err, access.ErrForbidden) {
 		return Receipt{}, ErrForbidden
 	}
 	if err != nil {

@@ -1,6 +1,6 @@
-# 本地草稿命令后端
+# 企业授权与资产控制面后端
 
-本模块实现 Go/chi → OIDC/会话 → 成员授权 → 命令服务 → pgx/sqlc → PostgreSQL 的闭环。命令回执、任务草稿、业务审计和 outbox 同事务提交；本切片不消费 outbox，没有 Runner、扫描、模型或工作流执行能力。`accepted` 表示草稿已持久化，不能解释为目标操作已执行。
+本模块实现 Go/chi → OIDC/会话 → 成员授权 → 命令服务 → pgx/sqlc → PostgreSQL 的闭环，支持草稿、项目资产、不可变授权版本、紧急禁止与静态预检查。命令、业务记录、审计和 outbox 同事务提交。预检查只使用本地规范化和控制面数据库，结果为 `deny` 或 `requires_runtime_checks`；`accepted` 表示持久化，不表示目标操作已执行。本切片没有 outbox 消费者、Runner、扫描、模型或工作流执行能力。
 
 ## 运行依赖与配置
 
@@ -55,6 +55,13 @@ go run ./cmd/api
 | `internal/identity`   | OIDC Authorization Code + PKCE、服务端会话、CSRF、bootstrap 和能力投影。 |
 | `internal/httpapi`    | Cookie 会话、严格 JSON、请求 ID、来源和公开错误映射。                    |
 | `internal/command`    | 参数规范化、成员事务锁、幂等受理及原回执查询。                           |
+| `internal/access` | 新旧领域共享的 user → project → membership 权限锁与角色检查。 |
+| `internal/target` | 固定 target-v1 的域名/IP/CIDR/exact URL 规范化和结构匹配，无目标 I/O。 |
+| `internal/asset` | 整批导入规范化、错误行预览及项目来源声明。 |
+| `internal/authorization` | 不可变候选内容、完整范围、预算合同与内容 hash。 |
+| `internal/policy` | 当前规则与保留地址优先的纯本地决策及运行时待检项。 |
+| `internal/scopecommand` | 独立命令 namespace、原子账本、CLI CAS 管理、冻结回执与签名 seek 分页。 |
+| `internal/validation` | 受控中文字段定位，禁止依赖错误及原请求透传。 |
 | `db/migrations`       | goose 编号 SQL 迁移与嵌入资源。                                          |
 | `db/queries`          | 参数化 sqlc 查询输入及中文并发说明。                                     |
 | `internal/store/sqlc` | sqlc 生成访问代码，不手工修改。                                          |
@@ -67,9 +74,13 @@ PostgreSQL `READ COMMITTED` 下，`INSERT ... ON CONFLICT DO NOTHING` 等待同�
 
 ## 迁移与数据回滚边界
 
-使用 goose 3.28.0 的 Provider 和编号文件 `00001_command_foundation.sql`、`00002_identity_access.sql`。首次建表迁移在事务中执行；重复 `up` 不重复执行，后续版本必须新增编号文件，不能更改已发布文件。开发数据库应独立于测试数据库。
+使用 goose 3.28.0 Provider 和编号文件。`00001`/`00002` 保留草稿及身份历史；`00003_authorization_assets.sql` 创建新领域；`00004_scope_integrity.sql` 前向补充 namespace、不可变正文/条目、预算和必需账本的数据库约束，校验已有数据而不改写历史。先运行全部迁移，再部署 API/admin。重复 `up` 不重复执行，已运行编号不得覆盖。开发数据库应独立于测试数据库。
 
 SQL 内保留 `Down` 以明确建表依赖的反向顺序，但其含义是**永久删除本切片数据**，不恢复用户数据。日常命令不暴露 down；实际数据问题优先备份、核对回执并前向修复。禁止在现有用户库运行测试或通过关闭唯一/外键约束使测试通过。
+
+管理员使用 `scope activate|revoke|deny-add|deny-revoke`，显式指定原 command ID、操作引用、项目或全局范围与 expected revision；成功 stdout 是单个冻结回执 JSON。`scope-command get` 使用相同范围、ID、操作引用恢复原回执；操作引用统一去除首尾空格，不作为认证身份。参数与示例见[根 README](../README.md)。激活替代旧版本，撤销不自动回退；历史预检查和回执保持原 checked_at/revision，不能用作当前执行许可。
+
+受保护 Web API 提供资产预览/导入、候选保存/历史、当前策略及预检查。新正文上限 256 KiB，严格拒绝重复、未知、缺失和大小写错误字段。规范化错误可给出 `validation_errors` 固定字段路径和受控中文建议，完整请求、URL query 和 SQL 原因不公开。列表默认 25、最多 100，按时间/UUID seek 返回 `has_more/next_cursor/page_count`，cursor 绑定项目与资源/筛选，不提供假总量。准确接口见[OpenAPI](../api/openapi.yaml)。
 
 ## 生成与验证
 
